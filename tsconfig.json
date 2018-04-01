@@ -1,0 +1,25 @@
+{
+	"compilerOptions": {
+		"target": "es5",
+		"outFile": "bin/core/core.js",
+		"experimentalDecorators": true,
+		"allowSyntheticDefaultImports": true,
+		"declaration": true,
+		"lib": [
+			"es2015",
+			"dom"
+		]
+	},
+	"include": [
+		"src"
+	],
+	"files": [
+		"libs/dragonBones.d.ts",
+		"libs/egret.d.ts",
+		"libs/eui.d.ts",
+		"libs/game.d.ts",
+		"libs/resourcemanager.d.ts",
+		"libs/socket.d.ts",
+		"libs/tween.d.ts"
+	]
+}
