@@ -4,16 +4,16 @@ module core {
 
         private _cacheData:object = null;
         constructor(){
-            if( ProxyCache.instance ){
+            if( this.instance ){
                 throw Error( "ProxyCache singleton already constructed!" );
             }
-            ProxyCache._instance = this;
+            this._instance = this;
             this._cacheData = {};
         }
 
         
-        static _instance:ProxyCache = null;
-        static get instance():ProxyCache {
+        private _instance:ProxyCache = null;
+        get instance():ProxyCache {
             if (!this._instance) {
                 this._instance = new ProxyCache();
             }

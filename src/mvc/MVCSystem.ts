@@ -6,19 +6,21 @@ module core {
         private _mediatorMap:Object = null;
         private _modelMap:Object = null;
         constructor(){
-            if( MVCSystem._instance )
+            if( this.instance ){
                 throw Error( "MVCSystem singleton already constructed!" );
-            MVCSystem._instance = this;
+            }
+            this._instance = this;
             this._observerMap = {};
             this._mediatorMap = {};
             this._modelMap = {};
         }
 
-        static _instance:MVCSystem;
-		static get instance():MVCSystem{
-			if( !MVCSystem._instance )
-            MVCSystem._instance = new MVCSystem();
-			return MVCSystem._instance;
+        private _instance:MVCSystem;
+		get instance():MVCSystem{
+			if( !this._instance ){
+                this._instance = new MVCSystem();
+            }
+			return this._instance;
 		}
 
         /**
