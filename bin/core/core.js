@@ -10,55 +10,598 @@ r.prototype = e.prototype, t.prototype = new r();
 };
 var core;
 (function (core) {
-    var Notification = (function () {
-        function Notification(name, body, type) {
-            if (body === void 0) { body = null; }
-            if (type === void 0) { type = null; }
-            this.name = null;
-            this.body = null;
-            this.type = null;
-            this.name = name;
-            this.body = body;
-            this.type = type;
+    var ComponentState = (function () {
+        function ComponentState(component) {
+            this._args = [];
+            this._listeners = [];
+            this._isFull = false;
+            this._component = component;
+            component.addEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
+            component.addEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
         }
-        Notification.prototype.getName = function () {
-            return this.name;
+        ComponentState.prototype.getArgs = function () {
+            return this._args;
         };
-        Notification.prototype.setBody = function (body) {
-            this.body = body;
+        ComponentState.prototype.setArgs = function (args) {
+            this._args = args;
         };
-        Notification.prototype.getBody = function () {
-            return this.body;
+        Object.defineProperty(ComponentState.prototype, "isFull", {
+            get: function () {
+                return this._isFull;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        ComponentState.prototype.setFull = function () {
+            this._isFull = true;
         };
-        Notification.prototype.setType = function (type) {
-            this.type = type;
+        ComponentState.prototype.isType = function (type) {
+            return this._type == type;
         };
-        Notification.prototype.getType = function () {
-            return this.type;
+        ComponentState.prototype.setType = function (type) {
+            this._type = type;
         };
-        Notification.prototype.toString = function () {
-            var msg = "Notification Name: " + this.getName();
-            msg += "\nBody:" + ((this.getBody() == null) ? "null" : this.getBody().toString());
-            msg += "\nType:" + ((this.getType() == null) ? "null" : this.getType());
-            return msg;
+        ComponentState.prototype.listener = function (component, type, func) {
+            if (!component || !func) {
+                return;
+            }
+            if (component.hasEventListener(type)) {
+                return;
+            }
+            this._listeners.push({ component: component, func: func, type: type });
+            component.addEventListener(type, func, this._component);
         };
-        return Notification;
+        ComponentState.prototype.clearLiteners = function () {
+            while (this._listeners.length > 0) {
+                var listItem = this._listeners.shift();
+                listItem.component.removeEventListener(listItem.type, listItem.func, this);
+            }
+        };
+        ComponentState.prototype.onAddToStage = function (e) {
+            this._component.removeEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
+            (_a = this._component).onEnter.apply(_a, this._args);
+            var _a;
+        };
+        ComponentState.prototype.onRemovedFromStage = function () {
+            this._component.removeEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
+            this.clearLiteners();
+            this._component.onExit();
+        };
+        return ComponentState;
     }());
-    core.Notification = Notification;
-    __reflect(Notification.prototype, "core.Notification", ["core.INotification"]);
+    core.ComponentState = ComponentState;
+    __reflect(ComponentState.prototype, "core.ComponentState");
+})(core || (core = {}));
+var core;
+(function (core) {
+    var App = (function () {
+        function App() {
+        }
+        App.setStage = function (s) {
+            this._stage = s;
+        };
+        Object.defineProperty(App, "stage", {
+            get: function () {
+                return this._stage;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        return App;
+    }());
+    core.App = App;
+    __reflect(App.prototype, "core.App");
+})(core || (core = {}));
+var core;
+(function (core) {
+    var DBFaseMovie = (function (_super) {
+        __extends(DBFaseMovie, _super);
+        function DBFaseMovie() {
+            var _this = _super.call(this) || this;
+            _this.isCache = false;
+            _this._atLast = false;
+            _this._playName = "";
+            _this._frameRate = null;
+            return _this;
+        }
+        DBFaseMovie.prototype.setPath = function (path) {
+            //  assets/animation/fast/xxx_ske.dbmv
+            this._dataPath = path;
+            this._texturePath = path.replace("_ske.dbmv", "_tex.png");
+            this._fileName = core.BaseFactory.getFilenameWithoutExt(path).replace("_ske", "");
+        };
+        DBFaseMovie.prototype.prepareResource = function () {
+            var ske = RES.getRes(this._dataPath);
+            //preload预加载png图集
+            var tex = RES.getRes(this._texturePath);
+            if (ske && tex) {
+                return new Promise(function (resolve, reject) {
+                    resolve();
+                });
+            }
+            else {
+                RES.createGroup(this._fileName, [this._dataPath]);
+                return RES.loadGroup(this._fileName);
+            }
+        };
+        DBFaseMovie.prototype.play = function (name, playTimes) {
+            var _this = this;
+            if (playTimes === void 0) { playTimes = 0; }
+            playTimes = playTimes == 0 ? -1 : playTimes;
+            this.prepareResource().then(function () {
+                _this._playName = name;
+                _this.getMC().play(name, playTimes);
+            });
+        };
+        DBFaseMovie.prototype.gotoAndStop = function (name, frame) {
+            var _this = this;
+            this.prepareResource().then(function () {
+                _this.getMC().gotoAndStop(name, frame / 24);
+            });
+        };
+        DBFaseMovie.prototype.gotoAndPlay = function (name, frame, playTimes) {
+            var _this = this;
+            if (playTimes === void 0) { playTimes = 0; }
+            playTimes = playTimes == 0 ? -1 : playTimes == -1 ? 0 : playTimes;
+            this.prepareResource().then(function () {
+                _this.getMC().gotoAndPlay(name, frame / 24, playTimes);
+            });
+        };
+        DBFaseMovie.prototype.getMC = function () {
+            if (this._mc == null) {
+                this._mc = dragonBones.buildMovie(this._fileName);
+                this.addChild(this._mc);
+                this.initEvents();
+            }
+            if (this._mc && this._frameRate != null) {
+                this._mc.clipTimeScale = this._frameRate / 24;
+            }
+            return this._mc;
+        };
+        Object.defineProperty(DBFaseMovie.prototype, "frameRate", {
+            get: function () {
+                return this._frameRate;
+            },
+            set: function (val) {
+                this._frameRate = val;
+                if (this._mc) {
+                    this._mc.clipTimeScale = this._frameRate / 24;
+                }
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(DBFaseMovie.prototype, "atLast", {
+            get: function () {
+                return this._atLast;
+            },
+            set: function (val) {
+                this._atLast = val;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        DBFaseMovie.prototype.clearEvents = function () {
+            this.removeEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemoved, this);
+            if (this._mc) {
+                this._mc.removeEventListener(dragonBones.MovieEvent.LOOP_COMPLETE, this.onLoopComplete, this);
+                this._mc.removeEventListener(dragonBones.MovieEvent.COMPLETE, this.onComplete, this);
+                this._mc.removeEventListener(dragonBones.MovieEvent.FRAME_EVENT, this.onFrameLabel, this);
+            }
+        };
+        DBFaseMovie.prototype.initEvents = function () {
+            this.addEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemoved, this);
+            if (this._mc) {
+                this._mc.addEventListener(dragonBones.MovieEvent.LOOP_COMPLETE, this.onLoopComplete, this);
+                this._mc.addEventListener(dragonBones.MovieEvent.COMPLETE, this.onComplete, this);
+                this._mc.addEventListener(dragonBones.MovieEvent.FRAME_EVENT, this.onFrameLabel, this);
+            }
+        };
+        DBFaseMovie.prototype.onLoopComplete = function (e) {
+            this.dispatchEvent(new core.MovieEvent(core.MovieEvent.LOOP_COMPLETE));
+        };
+        DBFaseMovie.prototype.onComplete = function (e) {
+            this.dispatchEvent(new core.MovieEvent(core.MovieEvent.COMPLETE));
+            if (!this.atLast) {
+                core.display.removeFromParent(this._mc);
+            }
+        };
+        DBFaseMovie.prototype.onFrameLabel = function (e) {
+            this.dispatchEvent(new core.MovieEvent(core.MovieEvent.FRAME_LABEL, e.name));
+        };
+        DBFaseMovie.prototype.onRemoved = function (e) {
+            this.dispose();
+        };
+        DBFaseMovie.prototype.dispose = function () {
+            if (this.isCache) {
+                if (this._mc) {
+                    this._mc.stop();
+                }
+            }
+            else {
+                if (this._mc) {
+                    this._mc.dispose();
+                    this.clearEvents();
+                    core.display.removeFromParent(this._mc);
+                    this._mc = null;
+                }
+            }
+        };
+        return DBFaseMovie;
+    }(egret.DisplayObjectContainer));
+    core.DBFaseMovie = DBFaseMovie;
+    __reflect(DBFaseMovie.prototype, "core.DBFaseMovie", ["core.IMovie"]);
+})(core || (core = {}));
+var core;
+(function (core) {
+    var DragonMovie = (function (_super) {
+        __extends(DragonMovie, _super);
+        function DragonMovie() {
+            var _this = _super.call(this) || this;
+            _this.isCache = false;
+            _this._intialized = false;
+            _this._replaceDisplayArr = [];
+            _this._initEvent = false;
+            _this._frameRate = null;
+            return _this;
+        }
+        DragonMovie.prototype.setPath = function (path, armature) {
+            // dir: assets/animation/dragonBones/xxx
+            this._skeletonJson = path + "_anim.json";
+            this._textureImage = path + "_texture.png";
+            this._textureJson = path + "_texture.json";
+            this._dragonBonesName = core.BaseFactory.getFilenameWithoutExt(path);
+            this._fileName = this._dragonBonesName + "_dragonGroup";
+            this._armatureName = armature ? armature : this._dragonBonesName;
+            if (!this._intialized) {
+                this._intialized = true;
+                if (this.stage) {
+                    this.onAddToStage();
+                }
+                if (!this.hasEventListener(egret.Event.ADDED_TO_STAGE)) {
+                    this.addEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
+                }
+                if (!this.hasEventListener(egret.Event.REMOVED_FROM_STAGE)) {
+                    this.addEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemoveFromStage, this);
+                }
+            }
+        };
+        Object.defineProperty(DragonMovie.prototype, "armature", {
+            get: function () {
+                return this._armatureName;
+            },
+            set: function (val) {
+                this._armatureName = val;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        DragonMovie.prototype.play = function (name, playTimes) {
+            var _this = this;
+            this.prepareResource().then(function () {
+                _this.getArmture().animation.play(name, playTimes);
+            });
+        };
+        DragonMovie.prototype.getArmture = function () {
+            if (!this._armature) {
+                dragonBones.WorldClock.clock.remove(this._armature);
+                var aniData = RES.getRes(this._skeletonJson);
+                var texData = RES.getRes(this._textureJson);
+                var texImg = RES.getRes(this._textureImage);
+                //把动画数据添加到工厂里
+                //BaseFactory.getEgretFactory().getAllDragonBonesData();
+                if (!core.BaseFactory.getEgretFactory().getDragonBonesData(this._dragonBonesName)) {
+                    core.BaseFactory.getEgretFactory().parseDragonBonesData(aniData, this._dragonBonesName);
+                }
+                //把纹理集数据和图片添加到工厂里
+                if (!core.BaseFactory.getEgretFactory().getTextureAtlasData(this._dragonBonesName)) {
+                    core.BaseFactory.getEgretFactory().parseTextureAtlasData(texData, texImg, this._dragonBonesName);
+                }
+                //从工厂里创建出Armature
+                this._armature = core.BaseFactory.getEgretFactory().buildArmature(this._armatureName);
+                this._armature.display.x = this._armature.display.y = 0;
+                this.addChild(this._armature.display);
+                //插槽替换资源
+                if (this._replaceDisplayArr.length) {
+                    var info = this._replaceDisplayArr.shift();
+                    this.replaceDisplay(info.name, info.display);
+                }
+                dragonBones.WorldClock.clock.add(this._armature);
+                if (this._frameRate) {
+                    this.frameRate = this._frameRate;
+                }
+                this.initEvent();
+            }
+            return this._armature;
+        };
+        DragonMovie.prototype.gotoAndStop = function (name, frame) {
+        };
+        DragonMovie.prototype.gotoAndPlay = function (name, frame, playTimes) {
+        };
+        DragonMovie.prototype.prepareResource = function () {
+            var aniData = RES.getRes(this._armatureName);
+            var texData = RES.getRes(this._textureJson);
+            var texImg = RES.getRes(this._textureImage);
+            if (aniData && texData && texImg) {
+                return new Promise(function (resolve, reject) {
+                    resolve();
+                });
+            }
+            else {
+                RES.createGroup(this._fileName, [this._skeletonJson, this._textureJson, this._textureImage]);
+                return RES.loadGroup(this._fileName);
+            }
+        };
+        DragonMovie.prototype.onFrame = function (e) {
+            var ev = new core.MovieEvent(core.MovieEvent.FRAME_LABEL, e.frameLabel);
+            this.dispatchEvent(ev);
+        };
+        DragonMovie.prototype.onComplete = function (e) {
+            this.dispatchEvent(new core.MovieEvent(core.MovieEvent.COMPLETE));
+        };
+        DragonMovie.prototype.start = function (e) {
+            console.log("开始播放动画：", this._fileName + ".", this._armatureName);
+        };
+        DragonMovie.prototype.frameEvent = function (evt) {
+            //自定义事件的值 == evt.frameLabel
+            console.log("armature 播放到了一个关键帧！ 帧标签为：", evt.frameLabel);
+        };
+        DragonMovie.prototype.onAddToStage = function () {
+            this.initEvent();
+        };
+        DragonMovie.prototype.initEvent = function () {
+            if (this._armature && !this._initEvent) {
+                this._initEvent = true;
+                dragonBones.WorldClock.clock.add(this._armature);
+                this._armature.addEventListener(dragonBones.EgretEvent.START, this.start, this);
+                this._armature.addEventListener(dragonBones.EgretEvent.FRAME_EVENT, this.onFrame, this);
+                this._armature.addEventListener(dragonBones.EgretEvent.COMPLETE, this.onComplete, this);
+                this._armature.addEventListener(dragonBones.EgretEvent.LOOP_COMPLETE, this.onComplete, this);
+            }
+        };
+        DragonMovie.prototype.onRemoveFromStage = function () {
+            dragonBones.WorldClock.clock.remove(this._armature);
+            if (this._armature) {
+                this._initEvent = false;
+                this._armature.animation.stop();
+                this._armature.removeEventListener(dragonBones.EgretEvent.START, this.start, this);
+                this._armature.removeEventListener(dragonBones.EgretEvent.FRAME_EVENT, this.onFrame, this);
+                this._armature.removeEventListener(dragonBones.EgretEvent.COMPLETE, this.onComplete, this);
+                this._armature.removeEventListener(dragonBones.EgretEvent.LOOP_COMPLETE, this.onComplete, this);
+            }
+        };
+        Object.defineProperty(DragonMovie.prototype, "frameRate", {
+            get: function () {
+                return this._frameRate;
+            },
+            set: function (val) {
+                this._frameRate = val;
+                if (this._armature) {
+                    this._armature.clock.timeScale = this._frameRate / 24;
+                }
+            },
+            enumerable: true,
+            configurable: true
+        });
+        DragonMovie.prototype.dispose = function () {
+        };
+        DragonMovie.prototype.replaceDisplay = function (slotName, display) {
+            if (this._armature) {
+                var slot = this._armature.getSlot(slotName);
+                slot.displayIndex = 0;
+                slot.display = display;
+            }
+        };
+        DragonMovie.prototype.addReplaceDisplayInfo = function (info) {
+            this._replaceDisplayArr.push(info);
+        };
+        DragonMovie.prototype.replaceGlobal = function (textureName) {
+            //全局换装可实现将一个骨骼动画的骨架中全部贴图替换，如果使用全局换装功能，则新骨骼动画纹理集与源骨骼动画纹理集必须尺寸以及内部元素尺寸相同。
+            if (this._armature && RES.getRes(textureName)) {
+                this._armature.replacedTexture(RES.getRes(textureName));
+            }
+        };
+        DragonMovie.prototype.getSlot = function (slotName) {
+            if (this._armature) {
+                return this._armature.getSlot(slotName);
+            }
+            return null;
+        };
+        return DragonMovie;
+    }(egret.DisplayObjectContainer));
+    core.DragonMovie = DragonMovie;
+    __reflect(DragonMovie.prototype, "core.DragonMovie", ["core.IMovie"]);
+})(core || (core = {}));
+var core;
+(function (core) {
+    var MovieClip = (function (_super) {
+        __extends(MovieClip, _super);
+        function MovieClip() {
+            var _this = _super.call(this) || this;
+            _this._atLast = false;
+            _this.isCache = false;
+            _this._frameRate = null;
+            _this._hasEvent = false;
+            return _this;
+        }
+        Object.defineProperty(MovieClip.prototype, "atLast", {
+            get: function () {
+                return this._atLast;
+            },
+            set: function (val) {
+                this._atLast = val;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        MovieClip.prototype.setPath = function (path) {
+            this._dataPath = path;
+            this._texturePath = path.replace('.json', '.png');
+            this._filename = core.BaseFactory.getFilenameWithoutExt(this._dataPath);
+        };
+        MovieClip.prototype.prepareResource = function () {
+            var factory = RES.getRes(this._dataPath);
+            if (factory) {
+                return new Promise(function (ok) {
+                    ok();
+                });
+            }
+            else {
+                RES.createGroup(this._filename, [this._dataPath]);
+                return RES.loadGroup(this._filename);
+            }
+        };
+        MovieClip.prototype.play = function (name, playTimes) {
+            var _this = this;
+            if (playTimes === void 0) { playTimes = 0; }
+            this.prepareResource().then(function () {
+                _this.getMC(name).play(playTimes);
+            });
+        };
+        MovieClip.prototype.gotoAndStop = function (name, frame) {
+            var _this = this;
+            this.prepareResource().then(function () {
+                _this.getMC(name).gotoAndStop(frame);
+            });
+        };
+        MovieClip.prototype.gotoAndPlay = function (name, frame, playTimes) {
+            var _this = this;
+            if (playTimes === void 0) { playTimes = 0; }
+            this.prepareResource().then(function () {
+                _this.getMC(name).gotoAndPlay(frame, playTimes);
+            });
+        };
+        MovieClip.prototype.getMC = function (name) {
+            if (this._mc) {
+                if (!this._hasEvent) {
+                    this.initEvents();
+                }
+                return this._mc;
+            }
+            var factory = RES.getRes(this._dataPath);
+            if (factory) {
+                this._mc = new egret.MovieClip(factory.generateMovieClipData(name));
+                this.initEvents();
+                this.addChild(this._mc);
+            }
+            return this._mc;
+        };
+        Object.defineProperty(MovieClip.prototype, "frameRate", {
+            get: function () {
+                return this._frameRate;
+            },
+            set: function (val) {
+                this._frameRate = val;
+                if (this._mc) {
+                    this._mc.frameRate = val;
+                }
+            },
+            enumerable: true,
+            configurable: true
+        });
+        MovieClip.prototype.clearEvents = function () {
+            this._hasEvent = false;
+            this.removeEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemoved, this);
+            if (this._mc) {
+                this._mc.removeEventListener(egret.MovieClipEvent.LOOP_COMPLETE, this.onLoopComplete, this);
+                this._mc.removeEventListener(egret.MovieClipEvent.COMPLETE, this.onComplete, this);
+                this._mc.removeEventListener(egret.MovieClipEvent.FRAME_LABEL, this.onFrameLabel, this);
+            }
+        };
+        MovieClip.prototype.initEvents = function () {
+            this._hasEvent = true;
+            this.addEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemoved, this);
+            if (this._mc) {
+                this._mc.addEventListener(egret.MovieClipEvent.LOOP_COMPLETE, this.onLoopComplete, this);
+                this._mc.addEventListener(egret.MovieClipEvent.COMPLETE, this.onComplete, this);
+                this._mc.addEventListener(egret.MovieClipEvent.FRAME_LABEL, this.onFrameLabel, this);
+            }
+        };
+        MovieClip.prototype.onLoopComplete = function (e) {
+            this.dispatchEvent(new core.MovieEvent(core.MovieEvent.LOOP_COMPLETE));
+        };
+        MovieClip.prototype.onComplete = function (e) {
+            this.dispatchEvent(new core.MovieEvent(core.MovieEvent.COMPLETE));
+            if (!this.atLast) {
+                core.display.removeFromParent(this);
+            }
+        };
+        MovieClip.prototype.onFrameLabel = function (e) {
+            this.dispatchEvent(new core.MovieEvent(core.MovieEvent.FRAME_LABEL, e.frameLabel));
+        };
+        MovieClip.prototype.onRemoved = function (e) {
+            this.dispose();
+        };
+        MovieClip.prototype.dispose = function () {
+            this.clearEvents();
+        };
+        return MovieClip;
+    }(egret.DisplayObjectContainer));
+    core.MovieClip = MovieClip;
+    __reflect(MovieClip.prototype, "core.MovieClip", ["core.IMovie"]);
+})(core || (core = {}));
+var core;
+(function (core) {
+    var MovieClock = (function () {
+        function MovieClock() {
+            this._lastTime = 0;
+        }
+        MovieClock.prototype.start = function () {
+            this._lastTime = egret.getTimer();
+            egret.startTick(this.tick, this);
+        };
+        MovieClock.prototype.tick = function (time) {
+            var gap = time - this._lastTime;
+            this._lastTime = time;
+            dragonBones.WorldClock.clock.advanceTime(gap / 1000);
+            return false;
+        };
+        MovieClock.prototype.stop = function () {
+            egret.stopTick(this.tick, this);
+        };
+        return MovieClock;
+    }());
+    core.MovieClock = MovieClock;
+    __reflect(MovieClock.prototype, "core.MovieClock");
+})(core || (core = {}));
+var core;
+(function (core) {
+    var MovieEvent = (function (_super) {
+        __extends(MovieEvent, _super);
+        function MovieEvent(name, label) {
+            if (label === void 0) { label = null; }
+            var _this = _super.call(this, name) || this;
+            _this._frameLabel = label;
+            return _this;
+        }
+        Object.defineProperty(MovieEvent.prototype, "frameLabel", {
+            get: function () {
+                return this._frameLabel;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        MovieEvent.FRAME_LABEL = "Frame_Label";
+        MovieEvent.LOOP_COMPLETE = "Loop_Complete";
+        MovieEvent.COMPLETE = "Complete";
+        return MovieEvent;
+    }(egret.Event));
+    core.MovieEvent = MovieEvent;
+    __reflect(MovieEvent.prototype, "core.MovieEvent");
 })(core || (core = {}));
 var core;
 (function (core) {
     var ProxyCache = (function () {
         function ProxyCache() {
             this._cacheData = null;
-            if (ProxyCache.instance) {
+            this._instance = null;
+            if (this.instance) {
                 throw Error("ProxyCache singleton already constructed!");
             }
-            ProxyCache._instance = this;
+            this._instance = this;
             this._cacheData = {};
         }
-        Object.defineProperty(ProxyCache, "instance", {
+        Object.defineProperty(ProxyCache.prototype, "instance", {
             get: function () {
                 if (!this._instance) {
                     this._instance = new ProxyCache();
@@ -108,10 +651,675 @@ var core;
             return this._cacheData.hasOwnProperty(params[0]) &&
                 this._cacheData[params[0]].hasOwnProperty(params[1]);
         };
-        ProxyCache._instance = null;
         return ProxyCache;
     }());
     __reflect(ProxyCache.prototype, "ProxyCache");
+})(core || (core = {}));
+var core;
+(function (core) {
+    var NotificationKey = (function () {
+        function NotificationKey() {
+        }
+        NotificationKey.getModDo = function (moddo) {
+            if (core.is.string(moddo)) {
+                return moddo;
+            }
+            if (moddo && moddo.moddo) {
+                return moddo.moddo;
+            }
+            return null;
+        };
+        /**
+         * 缓存请求数据前
+         * @param moddo
+         * @returns {string}
+         * @constructor
+         */
+        NotificationKey.BeforeChange = function (moddo) {
+            return "BeforeChange." + NotificationKey.getModDo(moddo);
+        };
+        NotificationKey.AfterChange = function (moddo) {
+            return "AfterChange." + NotificationKey.getModDo(moddo);
+        };
+        /**
+         * 返回特定接口缓存更新的通知事件名
+         * @param moddo 接口名称
+         * @returns {string} 更新通知事件名
+         * @constructor
+         */
+        NotificationKey.Change = function (moddo) {
+            return "Change." + NotificationKey.getModDo(moddo);
+        };
+        /**
+         * 返回特定接口缓存数据的通知事件名
+         * @param moddo 接口名称
+         * @returns {string} 缓存通知事件名
+         * @constructor
+         */
+        NotificationKey.Cache = function (moddo) {
+            return "Cache." + NotificationKey.getModDo(moddo);
+        };
+        /**
+         * 缓存请求数据
+         * @type {string}
+         */
+        NotificationKey.CacheChange = "CacheChange";
+        return NotificationKey;
+    }());
+    core.NotificationKey = NotificationKey;
+    __reflect(NotificationKey.prototype, "core.NotificationKey");
+    /**
+     * 框架基础通知事件
+     * @type {core.NotificationKey}
+     */
+    core.k = NotificationKey;
+})(core || (core = {}));
+var core;
+(function (core) {
+    var Attribute = (function (_super) {
+        __extends(Attribute, _super);
+        function Attribute() {
+            var _this = _super.call(this) || this;
+            _this.addEventListener(egret.Event.ADDED_TO_STAGE, _this.add, _this);
+            return _this;
+        }
+        Object.defineProperty(Attribute.prototype, "name", {
+            get: function () {
+                return this._name;
+            },
+            set: function (value) {
+                this._name = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Attribute.prototype, "type", {
+            get: function () {
+                return this._type;
+            },
+            set: function (value) {
+                this._type = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Attribute.prototype, "value", {
+            get: function () {
+                if (this._value == 'true' || this._value == 'false') {
+                    return this._value == 'true';
+                }
+                return this._value;
+            },
+            set: function (value) {
+                this._value = value;
+                this.onUpdate();
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Attribute.prototype.onUpdate = function () {
+            if (this.parent && this.parent.updateAttribute) {
+                var host = this.parent;
+                host.updateAttribute(this);
+            }
+        };
+        Attribute.prototype.add = function () {
+            this.onUpdate();
+        };
+        return Attribute;
+    }(eui.Component));
+    core.Attribute = Attribute;
+    __reflect(Attribute.prototype, "core.Attribute");
+})(core || (core = {}));
+var core;
+(function (core) {
+    var BaseComponent = (function (_super) {
+        __extends(BaseComponent, _super);
+        function BaseComponent() {
+            var args = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                args[_i] = arguments[_i];
+            }
+            var _this = _super.call(this) || this;
+            _this._dataMapArr = [];
+            _this._args = [];
+            _this.$_state = new core.ComponentState(_this);
+            _this.setArgs(args);
+            return _this;
+        }
+        BaseComponent.prototype.listener = function (component, type, sender) {
+            this.$_state.listener(component, type, sender);
+        };
+        BaseComponent.prototype.clearListeners = function () {
+            this.$_state.clearLiteners();
+        };
+        Object.defineProperty(BaseComponent.prototype, "hook", {
+            get: function () {
+                if (!this._hook) {
+                    this._hook = new core.ComponentHook(this);
+                }
+                return this._hook;
+            },
+            set: function (value) {
+                this._hook = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        BaseComponent.prototype.addOperate = function (operate) {
+            this.hook.addOperate(operate);
+            return this;
+        };
+        BaseComponent.prototype.removeOperate = function (operate) {
+            this.hook.removeOperate(operate);
+        };
+        BaseComponent.prototype.clearOperate = function () {
+            this.hook.clearOperate();
+        };
+        BaseComponent.prototype.removeOperateByName = function (name) {
+            this.hook.removeOperateByName(name);
+        };
+        BaseComponent.prototype.getOperateByName = function (name) {
+            return this.hook.getOperateByName(name);
+        };
+        BaseComponent.prototype.getArgs = function () {
+            return this.$_state.getArgs();
+        };
+        BaseComponent.prototype.setArgs = function (args) {
+            this.$_state.setArgs(args);
+        };
+        BaseComponent.prototype.updateAttribute = function (attribute) {
+            this[attribute.name] = attribute.value;
+        };
+        Object.defineProperty(BaseComponent.prototype, "data", {
+            get: function () {
+                return this._data;
+            },
+            set: function (value) {
+                this._data = value;
+                if (value != null) {
+                    this.addDataMap('data');
+                    eui.PropertyEvent.dispatchPropertyEvent(this, eui.PropertyEvent.PROPERTY_CHANGE, "data");
+                }
+                this.dataChanged();
+            },
+            enumerable: true,
+            configurable: true
+        });
+        BaseComponent.prototype.addDataMap = function (name) {
+            if (this._dataMapArr.indexOf(name) == -1) {
+                this._dataMapArr.push(name);
+            }
+        };
+        Object.defineProperty(BaseComponent.prototype, "isFull", {
+            get: function () {
+                return this.$_state.isFull;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        BaseComponent.prototype.setFull = function () {
+            this.$_state.setFull();
+            return this;
+        };
+        BaseComponent.prototype.setData = function (data, type) {
+            if (type === void 0) { type = 'data'; }
+            if (type == 'data') {
+                this.data = data;
+            }
+            else {
+                this[type] = data;
+                if (data != null) {
+                    this.addDataMap(type);
+                    eui.PropertyEvent.dispatchPropertyEvent(this, eui.PropertyEvent.PROPERTY_CHANGE, type);
+                }
+            }
+            if (this._hook && data != null) {
+                this._hook.setData(data, type);
+            }
+            return this;
+        };
+        BaseComponent.prototype.dataChanged = function () {
+        };
+        BaseComponent.prototype.setState = function (name) {
+            this.currentState = name;
+            return this;
+        };
+        BaseComponent.prototype.setCompName = function (name) {
+            this.componentName = name;
+            return this;
+        };
+        Object.defineProperty(BaseComponent.prototype, "componentName", {
+            get: function () {
+                return this._componentName;
+            },
+            set: function (value) {
+                this._componentName = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        BaseComponent.prototype.isType = function (type) {
+            return this.$_state.isType(type);
+        };
+        BaseComponent.prototype.setType = function (type) {
+            this.$_state.setType(type);
+        };
+        BaseComponent.prototype.onAddToStage = function (e) {
+            this.onEnter();
+        };
+        BaseComponent.prototype.onRemoveFromStage = function (e) {
+            this.onExit();
+        };
+        BaseComponent.prototype.onEnter = function () {
+            var args = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                args[_i] = arguments[_i];
+            }
+            (_a = this.hook).onEnter.apply(_a, args);
+            var _a;
+        };
+        BaseComponent.prototype.onExit = function () {
+            this.hook.onExit();
+            this.destoryData();
+        };
+        BaseComponent.prototype.destoryData = function () {
+            while (this._dataMapArr.length) {
+                this[this._dataMapArr.shift()] = null;
+            }
+            this._args = [];
+            this._data = null;
+            this.componentName = "";
+        };
+        return BaseComponent;
+    }(eui.Component));
+    core.BaseComponent = BaseComponent;
+    __reflect(BaseComponent.prototype, "core.BaseComponent", ["core.IComponent"]);
+})(core || (core = {}));
+var core;
+(function (core) {
+    var ComponentHook = (function () {
+        function ComponentHook(component) {
+            this._operates = [];
+            this._component = component;
+        }
+        ComponentHook.prototype.setData = function (data, type) {
+        };
+        ComponentHook.prototype.onEnter = function () {
+            var args = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                args[_i] = arguments[_i];
+            }
+            for (var i = 0; i < this._operates.length; i++) {
+                this._operates[i].enter(this._component);
+            }
+        };
+        ComponentHook.prototype.onExit = function () {
+            for (var i = 0; i < this._operates.length; i++) {
+                this._operates[i].exit(this._component);
+            }
+        };
+        ComponentHook.prototype.addOperate = function (operate) {
+            this._operates.push(operate);
+        };
+        ComponentHook.prototype.removeOperate = function (operate) {
+            var idx = this._operates.indexOf(operate);
+            if (idx > -1) {
+                operate.exit(this._component);
+                this._operates.splice(idx, 1);
+            }
+        };
+        ComponentHook.prototype.clearOperate = function () {
+            while (this._operates.length > 0) {
+                this.removeOperate(this._operates[0]);
+            }
+        };
+        ComponentHook.prototype.removeOperateByName = function (name) {
+            for (var i = this._operates.length - 1; i >= 0; i--) {
+                if (this._operates[i].getName() == name) {
+                    this.removeOperate(this._operates[i]);
+                }
+            }
+        };
+        ComponentHook.prototype.getOperateByName = function (name) {
+            var r = [];
+            for (var i = 0; i < this._operates.length; i++) {
+                if (this._operates[i].getName() == name) {
+                    r.push(this._operates[i]);
+                }
+            }
+            return r;
+        };
+        ComponentHook.prototype.getOperateByType = function (type) {
+            var r = [];
+            for (var i = 0; i < this._operates.length; i++) {
+                if (this._operates[i].type == type) {
+                    r.push(this._operates[i]);
+                }
+            }
+            return r;
+        };
+        return ComponentHook;
+    }());
+    core.ComponentHook = ComponentHook;
+    __reflect(ComponentHook.prototype, "core.ComponentHook", ["core.IComponentHook"]);
+})(core || (core = {}));
+var core;
+(function (core) {
+    var MovieType;
+    (function (MovieType) {
+        MovieType[MovieType["DRAGON"] = 0] = "DRAGON";
+        MovieType[MovieType["DBFAST"] = 1] = "DBFAST";
+        MovieType[MovieType["MOVIECLIP"] = 2] = "MOVIECLIP";
+        MovieType[MovieType["SEQUNCE_MOVIE"] = 3] = "SEQUNCE_MOVIE";
+    })(MovieType = core.MovieType || (core.MovieType = {}));
+    var BaseFactory = (function () {
+        function BaseFactory() {
+        }
+        BaseFactory.getEgretFactory = function () {
+            if (!this._egretFactory) {
+                this._egretFactory = new dragonBones.EgretFactory();
+                this.initClock();
+            }
+            return this._egretFactory;
+        };
+        BaseFactory.initClock = function () {
+            if (!this._movieClock) {
+                this._movieClock = new core.MovieClock();
+                this._movieClock.start();
+            }
+        };
+        BaseFactory.create = function (path, type, armature) {
+            //相对路径名称 assets/animation/fast/xxx_ske.dbmv 或 assets/animation/dragonBones/xxx_anim.json
+            var arr = path.split("/");
+            //动画文件名称
+            var fileName = arr[arr.length - 1];
+            var movie;
+            switch (type) {
+                case MovieType.DRAGON:
+                    //龙骨动画
+                    movie = new core.DragonMovie();
+                    movie.isCache = false;
+                    movie.setPath(path, armature);
+                    break;
+                case MovieType.DBFAST:
+                    movie = new core.DBFaseMovie();
+                    movie.isCache = false;
+                    movie.setPath(path);
+                    break;
+                case MovieType.MOVIECLIP:
+                    movie = new core.MovieClip();
+                    movie.isCache = false;
+                    movie.setPath(path);
+                    break;
+                case MovieType.SEQUNCE_MOVIE:
+                    break;
+                default:
+                    throw new Error("创建动画错误,动画类型:" + type);
+            }
+            return movie;
+        };
+        BaseFactory.fast = function (option, dbName) {
+            var movie = this.create('assets/animation/fast/' + dbName, MovieType.DBFAST);
+            option.actionName = option.actionName && option.actionName != "" ? option.actionName : "1";
+            this.play(movie, option);
+            return movie;
+        };
+        BaseFactory.playAnim = function (option, name, armature) {
+            var movie = this.create('assets/animation/dragonBones/' + name, MovieType.DRAGON, armature);
+            option.actionName = option.actionName && option.actionName != "" ? option.actionName : name;
+            this.play(movie, option);
+            return movie;
+        };
+        BaseFactory.play = function (movie, option) {
+            var playTime = option.playTimes ? option.playTimes : 0;
+            movie.play(option.actionName, playTime);
+            movie.touchEnabled = false;
+            movie.once(core.MovieEvent.COMPLETE, function () {
+                if (option.onComplete) {
+                    option.onComplete();
+                }
+            }, this);
+            movie.scaleX = option.scaleX ? option.scaleX : 1;
+            movie.scaleY = option.scaleY ? option.scaleY : 1;
+            if (option.container) {
+                option.container.addChild(movie);
+                movie.x = option.container.width / 2 + (option.offsetX || 0);
+                movie.y = option.container.height / 2 + (option.offsetY || 0);
+            }
+            else {
+                core.App.stage.addChild(movie);
+                movie.x = core.App.stage.width / 2 + (option.offsetX || 0);
+                movie.y = core.App.stage.height / 2 + (option.offsetY || 0);
+            }
+        };
+        BaseFactory.getFilenameWithoutExt = function (path) {
+            var arr = path.split('/');
+            var filename = arr[arr.length - 1];
+            arr = filename.split('.');
+            return arr[0];
+        };
+        return BaseFactory;
+    }());
+    core.BaseFactory = BaseFactory;
+    __reflect(BaseFactory.prototype, "core.BaseFactory");
+})(core || (core = {}));
+var core;
+(function (core) {
+    var UIType;
+    (function (UIType) {
+        UIType[UIType["SCENE"] = 0] = "SCENE";
+        UIType[UIType["COMMON"] = 1] = "COMMON";
+        UIType[UIType["PANEL"] = 2] = "PANEL";
+        UIType[UIType["MENU"] = 3] = "MENU";
+        UIType[UIType["BOX"] = 4] = "BOX";
+        UIType[UIType["GUIDE"] = 5] = "GUIDE";
+        UIType[UIType["TOOLTIP"] = 6] = "TOOLTIP";
+    })(UIType = core.UIType || (core.UIType = {}));
+    /**
+    * 游戏UI界面控制器
+    * 目前支持的容器(层级从下往上):场景层、公共UI层、面板层、菜单层、弹框层、新手引导层、浮动层
+    */
+    var UI = (function (_super) {
+        __extends(UI, _super);
+        function UI() {
+            var _this = _super.call(this) || this;
+            _this.touchEnabled = false;
+            _this._scene = new eui.UILayer();
+            _this._scene.touchEnabled = false;
+            _this.addChild(_this._scene);
+            _this._common = new eui.UILayer();
+            _this._common.touchEnabled = false;
+            _this.addChild(_this._common);
+            _this._panel = new eui.UILayer();
+            _this.addChild(_this._panel);
+            _this._panel.touchEnabled = false;
+            _this._menu = new eui.UILayer();
+            _this.addChild(_this._menu);
+            _this._menu.touchEnabled = false;
+            _this._box = new eui.UILayer();
+            _this.addChild(_this._box);
+            _this._box.touchEnabled = false;
+            _this._guide = new eui.UILayer();
+            _this.addChild(_this._guide);
+            _this._guide.touchEnabled = false;
+            _this._tooltip = new eui.UILayer();
+            _this.addChild(_this._tooltip);
+            _this._tooltip.touchEnabled = false;
+            _this._containerArr = [_this._scene, _this._common, _this._panel, _this._menu, _this._box, _this._guide, _this._tooltip];
+            return _this;
+        }
+        UI.prototype.setRoot = function (container) {
+            if (container) {
+                container.addChild(this);
+            }
+        };
+        UI.prototype.setMenu = function (menuType) {
+            var args = [];
+            for (var _i = 1; _i < arguments.length; _i++) {
+                args[_i - 1] = arguments[_i];
+            }
+            if (this._menuInst != null) {
+                this.remove(this._menuInst);
+            }
+            var menuInst = this.getTypeInst(menuType, args, UIType.MENU);
+            core.display.setFullDisplay(menuInst);
+            this._menuInst = menuInst;
+            this._menuInst.bottom = 0;
+            this._menuInst.horizontalCenter = 0;
+            this._menu.addChild(this._menuInst);
+        };
+        UI.prototype.runScene = function (sceneType) {
+            var args = [];
+            for (var _i = 1; _i < arguments.length; _i++) {
+                args[_i - 1] = arguments[_i];
+            }
+            if (this._sceneInst) {
+                this.remove(this._sceneInst);
+            }
+            var ret = this.addScene(sceneType, args);
+            return ret;
+        };
+        UI.prototype.addScene = function (sceneType) {
+            var args = [];
+            for (var _i = 1; _i < arguments.length; _i++) {
+                args[_i - 1] = arguments[_i];
+            }
+            var sceneInst = this.getTypeInst(sceneType, args, UIType.SCENE);
+            core.display.setFullDisplay(sceneInst);
+            this._sceneInst = sceneInst;
+            this._scene.addChild(sceneInst);
+            return sceneInst;
+        };
+        UI.prototype.addBox = function (boxType) {
+            var args = [];
+            for (var _i = 1; _i < arguments.length; _i++) {
+                args[_i - 1] = arguments[_i];
+            }
+            var boxInst = this.getTypeInst(boxType, args, UIType.BOX);
+            core.display.setFullDisplay(boxInst);
+            this._box.addChild(boxInst);
+            return boxInst;
+        };
+        UI.prototype.addPanel = function (panelType) {
+            var args = [];
+            for (var _i = 1; _i < arguments.length; _i++) {
+                args[_i - 1] = arguments[_i];
+            }
+            var panelInst = this.getTypeInst(panelType, args, UIType.PANEL);
+            core.display.setFullDisplay(panelInst);
+            this._panel.addChild(panelInst);
+            return panelInst;
+        };
+        UI.prototype.addCommon = function (commonType) {
+            var args = [];
+            for (var _i = 1; _i < arguments.length; _i++) {
+                args[_i - 1] = arguments[_i];
+            }
+            var commonInst = this.getTypeInst(commonType, args, UIType.COMMON);
+            core.display.setFullDisplay(commonInst);
+            this._common.addChild(commonInst);
+            return commonInst;
+        };
+        UI.prototype.addTooltip = function (tooltipType) {
+            var args = [];
+            for (var _i = 1; _i < arguments.length; _i++) {
+                args[_i - 1] = arguments[_i];
+            }
+            var tooltipInst = this.getTypeInst(tooltipType, args, UIType.TOOLTIP);
+            core.display.setFullDisplay(tooltipInst);
+            this._tooltip.addChild(tooltipInst);
+            return tooltipInst;
+        };
+        UI.prototype.getTypeInst = function (type, arg, uiType) {
+            var inst = null;
+            var skinName;
+            if (typeof (type) == "string") {
+                skinName = type;
+                type = core.BaseComponent;
+            }
+            if (type.constructor.name == "Function") {
+                inst = new (type.bind.apply(type, [void 0].concat(arg)))();
+            }
+            else {
+                inst = type;
+                inst.setArgs(arg);
+                if (skinName) {
+                    inst.skinName = skinName;
+                }
+            }
+            return inst;
+        };
+        UI.prototype.removeComponent = function (name) {
+            var obj = this.getComponent(name);
+            if (egret.is(obj, 'BaseComponent')) {
+                if (!this.isSingleContainer(obj)) {
+                    this.remove(obj);
+                }
+            }
+        };
+        UI.prototype.getComponent = function (name) {
+            for (var i = 0; i < this._containerArr.length; i++) {
+                var container = this._containerArr[i];
+                var component = this.getComponentByName(name, container);
+                if (component) {
+                    return component;
+                }
+            }
+            return null;
+        };
+        UI.prototype.getComponentByName = function (name, container) {
+            var num = container.numChildren;
+            for (var i = 0; i < num; i++) {
+                var child = container.getChildAt(i);
+                if (child.componentName == name) {
+                    return child;
+                }
+            }
+            return null;
+        };
+        UI.prototype.isSingleContainer = function (component) {
+            if (component.isType(UIType.SCENE) &&
+                component.isType(UIType.MENU)) {
+                return true;
+            }
+            return false;
+        };
+        UI.prototype.getContainerByType = function (type) {
+            switch (type) {
+                case UIType.BOX: {
+                    return this._box;
+                }
+                case UIType.SCENE: {
+                    return this._scene;
+                }
+                case UIType.GUIDE: {
+                    return this._guide;
+                }
+                case UIType.COMMON: {
+                    return this._common;
+                }
+                case UIType.MENU: {
+                    return this._menu;
+                }
+                case UIType.TOOLTIP: {
+                    return this._tooltip;
+                }
+                case UIType.PANEL: {
+                    return this._panel;
+                }
+            }
+            return null;
+        };
+        UI.prototype.remove = function (component) {
+            if (!component)
+                return;
+            // component.dispose();
+            core.display.removeFromParent(component);
+        };
+        return UI;
+    }(eui.UILayer));
+    __reflect(UI.prototype, "UI");
 })(core || (core = {}));
 var core;
 (function (core) {
@@ -206,18 +1414,20 @@ var core;
             this._observerMap = null;
             this._mediatorMap = null;
             this._modelMap = null;
-            if (MVCSystem._instance)
+            if (this.instance) {
                 throw Error("MVCSystem singleton already constructed!");
-            MVCSystem._instance = this;
+            }
+            this._instance = this;
             this._observerMap = {};
             this._mediatorMap = {};
             this._modelMap = {};
         }
-        Object.defineProperty(MVCSystem, "instance", {
+        Object.defineProperty(MVCSystem.prototype, "instance", {
             get: function () {
-                if (!MVCSystem._instance)
-                    MVCSystem._instance = new MVCSystem();
-                return MVCSystem._instance;
+                if (!this._instance) {
+                    this._instance = new MVCSystem();
+                }
+                return this._instance;
             },
             enumerable: true,
             configurable: true
@@ -414,62 +1624,42 @@ var core;
 })(core || (core = {}));
 var core;
 (function (core) {
-    var NotificationKey = (function () {
-        function NotificationKey() {
+    var Notification = (function () {
+        function Notification(name, body, type) {
+            if (body === void 0) { body = null; }
+            if (type === void 0) { type = null; }
+            this.name = null;
+            this.body = null;
+            this.type = null;
+            this.name = name;
+            this.body = body;
+            this.type = type;
         }
-        NotificationKey.getModDo = function (moddo) {
-            if (core.is.string(moddo)) {
-                return moddo;
-            }
-            if (moddo && moddo.moddo) {
-                return moddo.moddo;
-            }
-            return null;
+        Notification.prototype.getName = function () {
+            return this.name;
         };
-        /**
-         * 缓存请求数据前
-         * @param moddo
-         * @returns {string}
-         * @constructor
-         */
-        NotificationKey.BeforeChange = function (moddo) {
-            return "BeforeChange." + NotificationKey.getModDo(moddo);
+        Notification.prototype.setBody = function (body) {
+            this.body = body;
         };
-        NotificationKey.AfterChange = function (moddo) {
-            return "AfterChange." + NotificationKey.getModDo(moddo);
+        Notification.prototype.getBody = function () {
+            return this.body;
         };
-        /**
-         * 返回特定接口缓存更新的通知事件名
-         * @param moddo 接口名称
-         * @returns {string} 更新通知事件名
-         * @constructor
-         */
-        NotificationKey.Change = function (moddo) {
-            return "Change." + NotificationKey.getModDo(moddo);
+        Notification.prototype.setType = function (type) {
+            this.type = type;
         };
-        /**
-         * 返回特定接口缓存数据的通知事件名
-         * @param moddo 接口名称
-         * @returns {string} 缓存通知事件名
-         * @constructor
-         */
-        NotificationKey.Cache = function (moddo) {
-            return "Cache." + NotificationKey.getModDo(moddo);
+        Notification.prototype.getType = function () {
+            return this.type;
         };
-        /**
-         * 缓存请求数据
-         * @type {string}
-         */
-        NotificationKey.CacheChange = "CacheChange";
-        return NotificationKey;
+        Notification.prototype.toString = function () {
+            var msg = "Notification Name: " + this.getName();
+            msg += "\nBody:" + ((this.getBody() == null) ? "null" : this.getBody().toString());
+            msg += "\nType:" + ((this.getType() == null) ? "null" : this.getType());
+            return msg;
+        };
+        return Notification;
     }());
-    core.NotificationKey = NotificationKey;
-    __reflect(NotificationKey.prototype, "core.NotificationKey");
-    /**
-     * 框架基础通知事件
-     * @type {core.NotificationKey}
-     */
-    core.k = NotificationKey;
+    core.Notification = Notification;
+    __reflect(Notification.prototype, "core.Notification", ["core.INotification"]);
 })(core || (core = {}));
 var core;
 (function (core) {
@@ -512,6 +1702,87 @@ var core;
     }());
     core.Observer = Observer;
     __reflect(Observer.prototype, "core.Observer", ["core.IObserver"]);
+})(core || (core = {}));
+var core;
+(function (core) {
+    var BaseOperate = (function (_super) {
+        __extends(BaseOperate, _super);
+        function BaseOperate() {
+            return _super !== null && _super.apply(this, arguments) || this;
+        }
+        BaseOperate.prototype.setName = function (name) {
+            this._name = name;
+            var r = this;
+            return r;
+        };
+        BaseOperate.prototype.getName = function () {
+            return this._name;
+        };
+        BaseOperate.prototype.enter = function (component) {
+        };
+        BaseOperate.prototype.exit = function (component) {
+        };
+        return BaseOperate;
+    }(egret.HashObject));
+    core.BaseOperate = BaseOperate;
+    __reflect(BaseOperate.prototype, "core.BaseOperate", ["core.IComponentOperate"]);
+})(core || (core = {}));
+var core;
+(function (core) {
+    var display = (function () {
+        function display() {
+        }
+        display.setFullDisplay = function (display) {
+            display.width = core.App.stage.stageWidth;
+            display.width = core.App.stage.stageWidth;
+        };
+        /**
+         * 移除容器中的所有子显示对象
+         * @param container 需要移除子显示对象的容器
+         */
+        display.removeAllChildren = function (container) {
+            while (container.numChildren > 0) {
+                container.removeChildAt(0);
+            }
+        };
+        /**
+         * 移除显示对象,可以是egret的显示对象,也可以是继承组件
+         * @param child 子显示对象  child:egret.DisplayObject|BaseComponent
+         */
+        display.removeFromParent = function (child) {
+            if (child && child.parent) {
+                child.parent.removeChild(child);
+            }
+        };
+        /**
+         * 设置显示对象的相对描点
+         * @param disObj 需要设置描点的显示对象
+         * @param anchorX X轴相对描点
+         * @param anchorY Y轴相对描点
+         */
+        display.setAnchor = function (disObj, anchorX, anchorY) {
+            if (anchorY === void 0) { anchorY = anchorX; }
+            disObj.anchorOffsetX = disObj.width * anchorX;
+            disObj.anchorOffsetY = disObj.height * anchorY;
+        };
+        Object.defineProperty(display, "stageW", {
+            get: function () {
+                return core.App.stage.stageWidth;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(display, "stageH", {
+            get: function () {
+                return core.App.stage.stageHeight;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        return display;
+    }());
+    core.display = display;
+    __reflect(display.prototype, "core.display");
 })(core || (core = {}));
 var core;
 (function (core) {
