@@ -4,7 +4,7 @@ module core {
     /**
      * 对象池
      */
-    class ObjectPool<T> {
+    export class ObjectPool<T> {
 
         private _type : any;
         constructor(type){
@@ -57,7 +57,7 @@ module core {
         
     }
 
-    class pool {
+    export class pool {
         constructor(){
 
         }

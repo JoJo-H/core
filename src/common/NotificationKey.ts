@@ -6,6 +6,8 @@ module core {
 
         }
 
+        public static CLICK_BUTTON:string = "guide_click_button";
+
         /**
          * 缓存请求数据
          * @type {string}

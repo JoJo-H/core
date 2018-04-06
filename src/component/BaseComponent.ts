@@ -8,27 +8,27 @@ module core {
         setState(name:string):IComponent;
         setData(data:any, type?:any):IComponent;
         setCompName(name:string):IComponent;
+        getView(name):egret.DisplayObject;
     }
 
     export class BaseComponent extends eui.Component implements IComponent{
 
         private _data : any;
         private _dataMapArr:any = [];
-        private _args:any[] = [];
         private _componentName:string;
 
-        private $_state:ComponentState;
+        private _compState:ComponentState;
         constructor(...args){
             super();
-            this.$_state = new ComponentState(this);
+            this._compState = new ComponentState(this);
             this.setArgs(args);
         }
 
         listener(component:eui.Component,type:string, sender:(e:egret.Event) => void):void {
-            this.$_state.listener(component,type, sender);
+            this._compState.listener(component,type, sender);
         }
         clearListeners():void {
-            this.$_state.clearLiteners();
+            this._compState.clearLiteners();
         }
 
         private _hook:IComponentHook;
@@ -59,11 +59,10 @@ module core {
         }
 
         getArgs():any {
-            return this.$_state.getArgs();
+            return this._compState.getArgs();
         }
-
         setArgs(args):void {
-            this.$_state.setArgs(args);
+            this._compState.setArgs(args);
         }
 
         updateAttribute(attribute:Attribute):void {
@@ -78,23 +77,20 @@ module core {
             }
             this.dataChanged();
         }
-
         public get data(){
             return this._data;
         }
-
         private addDataMap(name) {
             if (this._dataMapArr.indexOf(name) == -1) {
                 this._dataMapArr.push(name);
             }
         }
 
-
         public get isFull(): boolean  {
-            return this.$_state.isFull;
+            return this._compState.isFull;
         }
         setFull():this {
-            this.$_state.setFull();
+            this._compState.setFull();
             return this;
         }
         
@@ -135,10 +131,10 @@ module core {
         }
 
         isType(type:UIType):boolean {
-            return this.$_state.isType(type);
+            return this._compState.isType(type);
         }
         setType(type:UIType):void {
-            this.$_state.setType(type);
+            this._compState.setType(type);
         }
 
         private onAddToStage(e:egret.Event):void {
@@ -150,21 +146,29 @@ module core {
         }
 
         onEnter(...args):void {
+            core.setAttribute(this);
             this.hook.onEnter(...args);
         }
 
         onExit():void {
+            this.clearListeners();
             this.hook.onExit();
             this.destoryData();
         }
 
         destoryData():void {
+            this.componentName = "";
             while (this._dataMapArr.length) {
                 this[this._dataMapArr.shift()] = null;
             }
-            this._args = [];
-            this._data = null;
-            this.componentName = "";
+            core.destoryChildren(this);
+        }
+
+        getView(name):egret.DisplayObject {
+            if (this[name]) {
+                return this[name];
+            }
+            return core.getChildByName(name, this);
         }
     }
 }

@@ -19,7 +19,7 @@ module core {
     
         /**
          * 移除显示对象,可以是egret的显示对象,也可以是继承组件
-         * @param child 子显示对象  child:egret.DisplayObject|BaseComponent
+         * @param child 子显示对象
          */
         static removeFromParent(child:egret.DisplayObject):void {
             if ( child && child.parent) {

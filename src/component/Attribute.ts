@@ -53,4 +53,15 @@ module core {
             this.onUpdate();
         }
     }
+
+    export function setAttribute(component:egret.DisplayObjectContainer):void {
+        var num = component.numChildren;
+        for (var i = num - 1; i >= 0; i --) {
+            var child = component.getChildAt(i);
+            if (child instanceof Attribute) {
+                var attr = <Attribute>child;
+                component[attr.name] = attr.value;
+            }
+        }
+    }
 }

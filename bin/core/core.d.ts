@@ -1,30 +1,51 @@
 declare module core {
-    class ComponentState {
-        private _component;
-        private _args;
-        private _listeners;
-        constructor(component: IComponent);
+    interface IComponent extends egret.DisplayObject {
+        onEnter(...args: any[]): void;
+        onExit(): void;
+        listener(component: eui.Component, type: string, sender: (e: egret.Event) => void): void;
+        setState(name: string): IComponent;
+        setData(data: any, type?: any): IComponent;
+        setCompName(name: string): IComponent;
+        getView(name: any): egret.DisplayObject;
+    }
+    class BaseComponent extends eui.Component implements IComponent {
+        private _data;
+        private _dataMapArr;
+        private _componentName;
+        private _compState;
+        constructor(...args: any[]);
+        listener(component: eui.Component, type: string, sender: (e: egret.Event) => void): void;
+        clearListeners(): void;
+        private _hook;
+        hook: IComponentHook;
+        addOperate(operate: IComponentOperate<any>): BaseComponent;
+        removeOperate(operate: IComponentOperate<any>): void;
+        clearOperate(): void;
+        removeOperateByName(name: string): void;
+        getOperateByName(name: string): IComponentOperate<any>[];
         getArgs(): any;
         setArgs(args: any): void;
-        private _isFull;
+        updateAttribute(attribute: Attribute): void;
+        data: any;
+        private addDataMap(name);
         readonly isFull: boolean;
-        setFull(): void;
-        private _type;
+        setFull(): this;
+        setData(data: any, type?: any): BaseComponent;
+        protected dataChanged(): void;
+        setState(name: string): this;
+        setCompName(name: string): this;
+        componentName: string;
         isType(type: UIType): boolean;
         setType(type: UIType): void;
-        listener(component: eui.Component, type: string, func: (e: egret.Event) => void): void;
-        clearLiteners(): void;
-        onAddToStage(e: any): void;
-        onRemovedFromStage(): void;
+        private onAddToStage(e);
+        private onRemoveFromStage(e);
+        onEnter(...args: any[]): void;
+        onExit(): void;
+        destoryData(): void;
+        getView(name: any): egret.DisplayObject;
     }
 }
 declare module core {
-    class App {
-        constructor();
-        private static _stage;
-        static setStage(s: egret.Stage): void;
-        static readonly stage: egret.Stage;
-    }
 }
 declare module core {
     class DBFaseMovie extends egret.DisplayObjectContainer implements IMovie {
@@ -171,6 +192,7 @@ declare module core {
 declare module core {
     class NotificationKey {
         constructor();
+        static CLICK_BUTTON: string;
         /**
          * 缓存请求数据
          * @type {string}
@@ -221,51 +243,118 @@ declare module core {
         onUpdate(): void;
         add(): void;
     }
+    function setAttribute(component: egret.DisplayObjectContainer): void;
 }
 declare module core {
-    interface IComponent extends egret.DisplayObject {
-        onEnter(...args: any[]): void;
-        onExit(): void;
-        listener(component: eui.Component, type: string, sender: (e: egret.Event) => void): void;
-        setState(name: string): IComponent;
-        setData(data: any, type?: any): IComponent;
-        setCompName(name: string): IComponent;
+    class App {
+        static tooltipLayout: string;
+        constructor();
+        private static _stage;
+        static setStage(s: egret.Stage): void;
+        static readonly stage: egret.Stage;
     }
-    class BaseComponent extends eui.Component implements IComponent {
+    /**
+     * 获取指定类的类型
+     * @param name 类型名称
+     * @param defaultType 默认类型
+     * @returns {any}
+     */
+    function getDefinitionType(name: any, defaultType: any): any;
+    /**
+     * 获取指定类的实例
+     * @param args 类型构造函数参数列表
+     * @param name 类型名称
+     * @param defaultType 默认类型
+     * @param args 类型构造函数参数列表
+     * @returns {null}
+     */
+    function getDefinitionInstance<T>(name: string, defaultType?: any, ...args: any[]): T;
+    function propertyChange(obj: any, ...arg: any[]): void;
+    function getHostComponent(display: egret.DisplayObject): core.BaseComponent;
+    function destoryChildren(container: any): void;
+    function getChildByName(name: any, display: any): egret.DisplayObject;
+}
+declare module core {
+    class Button extends eui.Component {
+        static THROTTLE_TIME: number;
+        constructor();
+        private onAddToStage(e);
+        private _throttleTime;
+        throttleTime: number;
+        private _notice;
+        notice: string;
         private _data;
-        private _dataMapArr;
-        private _args;
-        private _componentName;
-        private $_state;
-        constructor(...args: any[]);
-        listener(component: eui.Component, type: string, sender: (e: egret.Event) => void): void;
-        clearListeners(): void;
-        private _hook;
-        hook: IComponentHook;
-        addOperate(operate: IComponentOperate<any>): BaseComponent;
-        removeOperate(operate: IComponentOperate<any>): void;
-        clearOperate(): void;
-        removeOperateByName(name: string): void;
-        getOperateByName(name: string): IComponentOperate<any>[];
-        getArgs(): any;
-        setArgs(args: any): void;
-        updateAttribute(attribute: Attribute): void;
         data: any;
         private addDataMap(name);
-        readonly isFull: boolean;
-        setFull(): this;
-        setData(data: any, type?: any): BaseComponent;
-        protected dataChanged(): void;
-        setState(name: string): this;
-        setCompName(name: string): this;
-        componentName: string;
-        isType(type: UIType): boolean;
-        setType(type: UIType): void;
-        private onAddToStage(e);
+        private _dataMapArr;
+        dataChanged(): void;
+        protected onEnter(): void;
+        protected onExit(): void;
+        private _throttleFun;
+        readonly throttleFun: Function;
         private onRemoveFromStage(e);
-        onEnter(...args: any[]): void;
-        onExit(): void;
         destoryData(): void;
+        dispose(): void;
+        labelDisplay: eui.IDisplayText;
+        private _label;
+        label: string;
+        iconDisplay: eui.Image;
+        private _icon;
+        icon: string | egret.Texture;
+        private setIconSource(icon);
+        /**
+         * @private
+         * 指示第一次分派 TouchEvent.TOUCH_BEGIN 时，触摸点是否在按钮上。
+         */
+        private touchCaptured;
+        /**
+         * 解除触碰事件处理。
+         * @param event 事件 <code>egret.TouchEvent</code> 的对象。
+         * @version Egret 3.0.1
+         * @version eui 1.0
+         * @platform Web,Native
+         * @language zh_CN
+         */
+        protected onTouchCancle(event: egret.TouchEvent): void;
+        /**
+         * 触碰事件处理。
+         * @param event 事件 <code>egret.TouchEvent</code> 的对象。
+         * @version Egret 2.4
+         * @version eui 1.0
+         * @platform Web,Native
+         * @language zh_CN
+         */
+        protected onTouchBegin(event: egret.TouchEvent): void;
+        /**
+         * @private
+         * 舞台上触摸弹起事件
+         */
+        private onStageTouchEnd(event);
+        /**
+         * @inheritDoc
+         *
+         * @version Egret 2.4
+         * @version eui 1.0
+         * @platform Web,Native
+         */
+        protected getCurrentState(): string;
+        /**
+         * @inheritDoc
+         *
+         * @version Egret 2.4
+         * @version eui 1.0
+         * @platform Web,Native
+         */
+        protected partAdded(partName: string, instance: any): void;
+        /**
+         * 当在用户单击按钮之后处理 <code>egret.TouchEvent.TOUCH_END</code> 事件时，将调用此方法。
+         * 仅当以按钮为目标，并且 <code>touchCaptured</code> 为 <code>true</code> 时，才会调用此方法。
+         * @version Egret 2.4
+         * @version eui 1.0
+         * @platform Web,Native
+         * @language zh_CN
+         */
+        protected buttonReleased(): void;
     }
 }
 declare module core {
@@ -293,6 +382,72 @@ declare module core {
         removeOperateByName(name: string): void;
         getOperateByName(name: string): IComponentOperate<any>[];
         getOperateByType(type: string): IComponentOperate<any>[];
+    }
+}
+declare module core {
+    class ComponentState {
+        private _component;
+        private _args;
+        private _listeners;
+        constructor(component: IComponent);
+        getArgs(): any;
+        setArgs(args: any): void;
+        private _isFull;
+        readonly isFull: boolean;
+        setFull(): void;
+        private _type;
+        isType(type: UIType): boolean;
+        setType(type: UIType): void;
+        listener(component: eui.Component, type: string, func: (e: egret.Event) => void): void;
+        clearLiteners(): void;
+        onAddToStage(e: any): void;
+        onRemovedFromStage(): void;
+    }
+}
+declare module core {
+    class ItemRenderer extends eui.ItemRenderer implements IComponent, IAttributeHost {
+        private _state;
+        constructor();
+        private _notice;
+        notice: string;
+        private _componentName;
+        componentName: string;
+        private _ignoreButton;
+        ignoreButton: boolean;
+        private $_data;
+        data: any;
+        private _dataMapArr;
+        private addDataMap(name);
+        setData(data: any, type?: any): core.IComponent;
+        dataChanged(): void;
+        updateAttribute(attribute: core.Attribute): void;
+        setState(name: string): core.IComponent;
+        setCompName(name: string): core.IComponent;
+        listener(component: eui.Component, type: any, sender: (e: egret.Event) => void): void;
+        clearListeners(): void;
+        onEnter(): void;
+        onExit(): void;
+        protected getCurrentState(): string;
+        destoryData(): void;
+        private tap(e);
+        getView(name: any): egret.DisplayObject;
+    }
+}
+declare module core {
+    class ProgressBar extends eui.ProgressBar {
+        private _data;
+        data: any;
+    }
+}
+declare module core {
+    class RadioButton extends eui.RadioButton {
+        private _data;
+        data: any;
+        private _notice;
+        notice: string;
+        protected getCurrentState(): string;
+        customState: string;
+        protected buttonReleased(): void;
     }
 }
 declare module core {
@@ -341,6 +496,44 @@ declare module core {
     }
 }
 declare module core {
+    class ToggleButton extends eui.ToggleButton {
+        private _data;
+        data: any;
+        private _notice;
+        notice: string;
+        constructor();
+        getButton(name: string): this;
+        protected getCurrentState(): string;
+        protected buttonReleased(): void;
+    }
+}
+declare module core {
+    interface ITooltip {
+        show(info: TooltipInfo | string, skinName?: string): void;
+        customView(skinName: string, data: any, delay?: number): void;
+        skinName: string;
+    }
+    interface TooltipInfo {
+        text: string;
+        size?: number;
+        color?: number;
+        delay?: number;
+    }
+    class Tooltip extends BaseComponent implements ITooltip {
+        private _items;
+        constructor();
+        show(arg: TooltipInfo | string, skinName?: string): void;
+        private createItem(item, delay);
+        private removeItem(item);
+        customView(skinName: string, data: any, delay?: number): void;
+        private _layout;
+        readonly layout: ITooltipLayout;
+    }
+    interface ITooltipLayout {
+        layout(items: BaseComponent[]): void;
+    }
+}
+declare module core {
     enum UIType {
         SCENE = 0,
         COMMON = 1,
@@ -349,6 +542,31 @@ declare module core {
         BOX = 4,
         GUIDE = 5,
         TOOLTIP = 6,
+    }
+    /**
+     * 游戏UI界面控制器
+     * 目前支持的容器(层级从下往上):场景层、公共UI层、面板层、菜单层、弹框层、新手引导层、浮动层
+     */
+    class UI extends eui.UILayer {
+        private _tooltip;
+        private _guide;
+        private _box;
+        private _common;
+        private _panel;
+        private _menu;
+        private _scene;
+        private _topScene;
+        private _containerArr;
+        constructor();
+        getContainerByType(type: UIType): eui.UILayer;
+        hasPanel(): boolean;
+        private getComponentByName(name, container);
+    }
+}
+declare module core {
+    interface IAnimation {
+        show(target: IComponent, calblack: Function): void;
+        hide(target: IComponent, callback: Function): void;
     }
 }
 declare module core {
@@ -507,7 +725,7 @@ declare module core {
         static removeAllChildren(container: egret.DisplayObjectContainer): void;
         /**
          * 移除显示对象,可以是egret的显示对象,也可以是继承组件
-         * @param child 子显示对象  child:egret.DisplayObject|BaseComponent
+         * @param child 子显示对象
          */
         static removeFromParent(child: egret.DisplayObject): void;
         /**
@@ -519,6 +737,11 @@ declare module core {
         static setAnchor(disObj: egret.DisplayObject, anchorX: number, anchorY?: number): void;
         static readonly stageW: number;
         static readonly stageH: number;
+    }
+}
+declare module core {
+    class fun {
+        static throttle(fn: any, delay: any, immediate?: boolean, debounce?: any): () => void;
     }
 }
 declare module core {
@@ -547,6 +770,62 @@ declare module core {
     }
 }
 declare module core {
+    class obj {
+        static deepClone(obj: any): any;
+        static deepClone2(obj: any): any;
+        /**
+         * @desc 深拷贝，支持常见类型
+         * @param {Any} values
+         */
+        static deepCloneCommon(values: any): any;
+        static simpleClone(obj: any): {};
+        static getValue(data: any, key: any, defVal?: any): any;
+        static hasValue(data: any, key: any): boolean;
+    }
+}
+declare module core {
+    /**
+     * 对象池
+     */
+    class ObjectPool<T> {
+        private _type;
+        constructor(type: any);
+        private _leftArr;
+        private _useArr;
+        /**
+         * 回收对象,当不需要使用对象池创建的对象时,使用该方法回收对象
+         * @param instance
+         */
+        push(instance: T): void;
+        /**
+         * 拉取对象,如果对象池中不存在任何可供使用的对象,则会创建出新的对象
+         * 如果对象有init函数，则执行该函数传入参数
+         * @param args 初始化对象的参数列表
+         * @returns {any}
+         */
+        pop(...args: any[]): T;
+    }
+    class pool {
+        constructor();
+        private static _poolMap;
+        /**
+         * 获取指定类型的对象池
+         * @param clz 指定的类型
+         * @returns {ObjectPool<T>} 类型对象池
+         */
+        static getPool<T>(clz: {
+            new (): T;
+        }): ObjectPool<T>;
+        /**
+         * 获取指定分组的类型对象池
+         * @param clz 指定类型
+         * @param type 类别
+         * @returns {any} 类型对象池
+         */
+        static getTypePool<T>(clz: {
+            new (): T;
+        }, type: string): ObjectPool<T>;
+    }
 }
 declare module core {
     /**

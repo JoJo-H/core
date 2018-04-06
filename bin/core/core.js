@@ -10,87 +10,178 @@ r.prototype = e.prototype, t.prototype = new r();
 };
 var core;
 (function (core) {
-    var ComponentState = (function () {
-        function ComponentState(component) {
-            this._args = [];
-            this._listeners = [];
-            this._isFull = false;
-            this._component = component;
-            component.addEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
-            component.addEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
+    var BaseComponent = (function (_super) {
+        __extends(BaseComponent, _super);
+        function BaseComponent() {
+            var args = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                args[_i] = arguments[_i];
+            }
+            var _this = _super.call(this) || this;
+            _this._dataMapArr = [];
+            _this._compState = new core.ComponentState(_this);
+            _this.setArgs(args);
+            return _this;
         }
-        ComponentState.prototype.getArgs = function () {
-            return this._args;
+        BaseComponent.prototype.listener = function (component, type, sender) {
+            this._compState.listener(component, type, sender);
         };
-        ComponentState.prototype.setArgs = function (args) {
-            this._args = args;
+        BaseComponent.prototype.clearListeners = function () {
+            this._compState.clearLiteners();
         };
-        Object.defineProperty(ComponentState.prototype, "isFull", {
+        Object.defineProperty(BaseComponent.prototype, "hook", {
             get: function () {
-                return this._isFull;
+                if (!this._hook) {
+                    this._hook = new core.ComponentHook(this);
+                }
+                return this._hook;
+            },
+            set: function (value) {
+                this._hook = value;
             },
             enumerable: true,
             configurable: true
         });
-        ComponentState.prototype.setFull = function () {
-            this._isFull = true;
+        BaseComponent.prototype.addOperate = function (operate) {
+            this.hook.addOperate(operate);
+            return this;
         };
-        ComponentState.prototype.isType = function (type) {
-            return this._type == type;
+        BaseComponent.prototype.removeOperate = function (operate) {
+            this.hook.removeOperate(operate);
         };
-        ComponentState.prototype.setType = function (type) {
-            this._type = type;
+        BaseComponent.prototype.clearOperate = function () {
+            this.hook.clearOperate();
         };
-        ComponentState.prototype.listener = function (component, type, func) {
-            if (!component || !func) {
-                return;
+        BaseComponent.prototype.removeOperateByName = function (name) {
+            this.hook.removeOperateByName(name);
+        };
+        BaseComponent.prototype.getOperateByName = function (name) {
+            return this.hook.getOperateByName(name);
+        };
+        BaseComponent.prototype.getArgs = function () {
+            return this._compState.getArgs();
+        };
+        BaseComponent.prototype.setArgs = function (args) {
+            this._compState.setArgs(args);
+        };
+        BaseComponent.prototype.updateAttribute = function (attribute) {
+            this[attribute.name] = attribute.value;
+        };
+        Object.defineProperty(BaseComponent.prototype, "data", {
+            get: function () {
+                return this._data;
+            },
+            set: function (value) {
+                this._data = value;
+                if (value != null) {
+                    this.addDataMap('data');
+                    eui.PropertyEvent.dispatchPropertyEvent(this, eui.PropertyEvent.PROPERTY_CHANGE, "data");
+                }
+                this.dataChanged();
+            },
+            enumerable: true,
+            configurable: true
+        });
+        BaseComponent.prototype.addDataMap = function (name) {
+            if (this._dataMapArr.indexOf(name) == -1) {
+                this._dataMapArr.push(name);
             }
-            if (component.hasEventListener(type)) {
-                return;
-            }
-            this._listeners.push({ component: component, func: func, type: type });
-            component.addEventListener(type, func, this._component);
         };
-        ComponentState.prototype.clearLiteners = function () {
-            while (this._listeners.length > 0) {
-                var listItem = this._listeners.shift();
-                listItem.component.removeEventListener(listItem.type, listItem.func, this);
-            }
+        Object.defineProperty(BaseComponent.prototype, "isFull", {
+            get: function () {
+                return this._compState.isFull;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        BaseComponent.prototype.setFull = function () {
+            this._compState.setFull();
+            return this;
         };
-        ComponentState.prototype.onAddToStage = function (e) {
-            this._component.removeEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
-            (_a = this._component).onEnter.apply(_a, this._args);
+        BaseComponent.prototype.setData = function (data, type) {
+            if (type === void 0) { type = 'data'; }
+            if (type == 'data') {
+                this.data = data;
+            }
+            else {
+                this[type] = data;
+                if (data != null) {
+                    this.addDataMap(type);
+                    eui.PropertyEvent.dispatchPropertyEvent(this, eui.PropertyEvent.PROPERTY_CHANGE, type);
+                }
+            }
+            if (this._hook && data != null) {
+                this._hook.setData(data, type);
+            }
+            return this;
+        };
+        BaseComponent.prototype.dataChanged = function () {
+        };
+        BaseComponent.prototype.setState = function (name) {
+            this.currentState = name;
+            return this;
+        };
+        BaseComponent.prototype.setCompName = function (name) {
+            this.componentName = name;
+            return this;
+        };
+        Object.defineProperty(BaseComponent.prototype, "componentName", {
+            get: function () {
+                return this._componentName;
+            },
+            set: function (value) {
+                this._componentName = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        BaseComponent.prototype.isType = function (type) {
+            return this._compState.isType(type);
+        };
+        BaseComponent.prototype.setType = function (type) {
+            this._compState.setType(type);
+        };
+        BaseComponent.prototype.onAddToStage = function (e) {
+            this.onEnter();
+        };
+        BaseComponent.prototype.onRemoveFromStage = function (e) {
+            this.onExit();
+        };
+        BaseComponent.prototype.onEnter = function () {
+            var args = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                args[_i] = arguments[_i];
+            }
+            core.setAttribute(this);
+            (_a = this.hook).onEnter.apply(_a, args);
             var _a;
         };
-        ComponentState.prototype.onRemovedFromStage = function () {
-            this._component.removeEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
-            this.clearLiteners();
-            this._component.onExit();
+        BaseComponent.prototype.onExit = function () {
+            this.clearListeners();
+            this.hook.onExit();
+            this.destoryData();
         };
-        return ComponentState;
-    }());
-    core.ComponentState = ComponentState;
-    __reflect(ComponentState.prototype, "core.ComponentState");
+        BaseComponent.prototype.destoryData = function () {
+            this.componentName = "";
+            while (this._dataMapArr.length) {
+                this[this._dataMapArr.shift()] = null;
+            }
+            core.destoryChildren(this);
+        };
+        BaseComponent.prototype.getView = function (name) {
+            if (this[name]) {
+                return this[name];
+            }
+            return core.getChildByName(name, this);
+        };
+        return BaseComponent;
+    }(eui.Component));
+    core.BaseComponent = BaseComponent;
+    __reflect(BaseComponent.prototype, "core.BaseComponent", ["core.IComponent"]);
 })(core || (core = {}));
 var core;
 (function (core) {
-    var App = (function () {
-        function App() {
-        }
-        App.setStage = function (s) {
-            this._stage = s;
-        };
-        Object.defineProperty(App, "stage", {
-            get: function () {
-                return this._stage;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        return App;
-    }());
-    core.App = App;
-    __reflect(App.prototype, "core.App");
+    var style;
 })(core || (core = {}));
 var core;
 (function (core) {
@@ -699,6 +790,7 @@ var core;
         NotificationKey.Cache = function (moddo) {
             return "Cache." + NotificationKey.getModDo(moddo);
         };
+        NotificationKey.CLICK_BUTTON = "guide_click_button";
         /**
          * 缓存请求数据
          * @type {string}
@@ -770,171 +862,384 @@ var core;
     }(eui.Component));
     core.Attribute = Attribute;
     __reflect(Attribute.prototype, "core.Attribute");
+    function setAttribute(component) {
+        var num = component.numChildren;
+        for (var i = num - 1; i >= 0; i--) {
+            var child = component.getChildAt(i);
+            if (child instanceof Attribute) {
+                var attr = child;
+                component[attr.name] = attr.value;
+            }
+        }
+    }
+    core.setAttribute = setAttribute;
 })(core || (core = {}));
 var core;
 (function (core) {
-    var BaseComponent = (function (_super) {
-        __extends(BaseComponent, _super);
-        function BaseComponent() {
-            var args = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i] = arguments[_i];
-            }
-            var _this = _super.call(this) || this;
-            _this._dataMapArr = [];
-            _this._args = [];
-            _this.$_state = new core.ComponentState(_this);
-            _this.setArgs(args);
-            return _this;
+    var App = (function () {
+        function App() {
         }
-        BaseComponent.prototype.listener = function (component, type, sender) {
-            this.$_state.listener(component, type, sender);
+        App.setStage = function (s) {
+            this._stage = s;
         };
-        BaseComponent.prototype.clearListeners = function () {
-            this.$_state.clearLiteners();
-        };
-        Object.defineProperty(BaseComponent.prototype, "hook", {
+        Object.defineProperty(App, "stage", {
             get: function () {
-                if (!this._hook) {
-                    this._hook = new core.ComponentHook(this);
-                }
-                return this._hook;
-            },
-            set: function (value) {
-                this._hook = value;
+                return this._stage;
             },
             enumerable: true,
             configurable: true
         });
-        BaseComponent.prototype.addOperate = function (operate) {
-            this.hook.addOperate(operate);
-            return this;
+        App.tooltipLayout = '';
+        return App;
+    }());
+    core.App = App;
+    __reflect(App.prototype, "core.App");
+    /**
+     * 获取指定类的类型
+     * @param name 类型名称
+     * @param defaultType 默认类型
+     * @returns {any}
+     */
+    function getDefinitionType(name, defaultType) {
+        if (core.is.truthy(name)) {
+            var t = egret.getDefinitionByName(name);
+            if (core.is.truthy(t)) {
+                return t;
+            }
+        }
+        return defaultType;
+    }
+    core.getDefinitionType = getDefinitionType;
+    /**
+     * 获取指定类的实例
+     * @param args 类型构造函数参数列表
+     * @param name 类型名称
+     * @param defaultType 默认类型
+     * @param args 类型构造函数参数列表
+     * @returns {null}
+     */
+    function getDefinitionInstance(name, defaultType) {
+        if (defaultType === void 0) { defaultType = null; }
+        var args = [];
+        for (var _i = 2; _i < arguments.length; _i++) {
+            args[_i - 2] = arguments[_i];
+        }
+        var define = core.getDefinitionType(name, defaultType);
+        if (core.is.truthy(define)) {
+            return new (define.bind.apply(define, [void 0].concat(args)))();
+        }
+        return null;
+    }
+    core.getDefinitionInstance = getDefinitionInstance;
+    function propertyChange(obj) {
+        var arg = [];
+        for (var _i = 1; _i < arguments.length; _i++) {
+            arg[_i - 1] = arguments[_i];
+        }
+        for (var i = 0; i < arg.length; i++) {
+            eui.PropertyEvent.dispatchPropertyEvent(obj, eui.PropertyEvent.PROPERTY_CHANGE, arg[i]);
+        }
+    }
+    core.propertyChange = propertyChange;
+    function getHostComponent(display) {
+        var host = display.parent;
+        if (this.isHostComponentType(host)) {
+            return host;
+        }
+        while (host && !(this.isHostComponentType(host))) {
+            host = host.parent;
+        }
+        if (this.isHostComponentType(host)) {
+            return host;
+        }
+        return null;
+    }
+    core.getHostComponent = getHostComponent;
+    function destoryChildren(container) {
+        var children = container.numChildren;
+        for (var i = 0; i < children; i++) {
+            var item = container.getChildAt(i);
+            if (item instanceof core.BaseComponent) {
+                item.destoryData();
+            }
+            else if (item instanceof core.Button) {
+                item.destoryData();
+            }
+            else if (item instanceof eui.Group) {
+                this.destoryChildren(item);
+            }
+            else if (item instanceof eui.Scroller) {
+                this.destoryChildren(item);
+            }
+            else if (item instanceof core.ItemRenderer) {
+                item.destoryData();
+            }
+        }
+    }
+    core.destoryChildren = destoryChildren;
+    function getChildByName(name, display) {
+        var num = display.numChildren;
+        for (var i = 0; i < num; i++) {
+            var child = display.getChildAt(i);
+            if (child instanceof egret.DisplayObjectContainer) {
+                if (child.name == name) {
+                    return child;
+                }
+                else {
+                    return this.getChildByName(name, child);
+                }
+            }
+            else if (child.name == name) {
+                return child;
+            }
+        }
+        return null;
+    }
+    core.getChildByName = getChildByName;
+    ;
+})(core || (core = {}));
+var core;
+(function (core) {
+    var Button = (function (_super) {
+        __extends(Button, _super);
+        function Button() {
+            var _this = _super.call(this) || this;
+            _this._throttleTime = null;
+            _this._notice = '';
+            _this._dataMapArr = [];
+            //eui.Button 源代码
+            _this.labelDisplay = null;
+            _this._label = "";
+            _this.iconDisplay = null;
+            _this._icon = null;
+            /**
+             * @private
+             * 指示第一次分派 TouchEvent.TOUCH_BEGIN 时，触摸点是否在按钮上。
+             */
+            _this.touchCaptured = false;
+            _this.touchChildren = false;
+            _this.addEventListener(egret.TouchEvent.TOUCH_BEGIN, _this.onTouchBegin, _this);
+            _this.addEventListener(egret.Event.ADDED_TO_STAGE, _this.onAddToStage, _this);
+            _this.addEventListener(egret.Event.REMOVED_FROM_STAGE, _this.onRemoveFromStage, _this);
+            return _this;
+        }
+        Button.prototype.onAddToStage = function (e) {
+            this.onEnter();
         };
-        BaseComponent.prototype.removeOperate = function (operate) {
-            this.hook.removeOperate(operate);
-        };
-        BaseComponent.prototype.clearOperate = function () {
-            this.hook.clearOperate();
-        };
-        BaseComponent.prototype.removeOperateByName = function (name) {
-            this.hook.removeOperateByName(name);
-        };
-        BaseComponent.prototype.getOperateByName = function (name) {
-            return this.hook.getOperateByName(name);
-        };
-        BaseComponent.prototype.getArgs = function () {
-            return this.$_state.getArgs();
-        };
-        BaseComponent.prototype.setArgs = function (args) {
-            this.$_state.setArgs(args);
-        };
-        BaseComponent.prototype.updateAttribute = function (attribute) {
-            this[attribute.name] = attribute.value;
-        };
-        Object.defineProperty(BaseComponent.prototype, "data", {
+        Object.defineProperty(Button.prototype, "throttleTime", {
             get: function () {
-                return this._data;
+                if (this._throttleTime == null || this._throttleTime <= 0) {
+                    return Button.THROTTLE_TIME;
+                }
+                return this._throttleTime;
             },
+            set: function (val) {
+                this._throttleTime = val;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Button.prototype, "notice", {
+            get: function () {
+                return this._notice;
+            },
+            set: function (notice) {
+                this._notice = notice;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Button.prototype, "data", {
             set: function (value) {
                 this._data = value;
                 if (value != null) {
                     this.addDataMap('data');
-                    eui.PropertyEvent.dispatchPropertyEvent(this, eui.PropertyEvent.PROPERTY_CHANGE, "data");
                 }
+                eui.PropertyEvent.dispatchPropertyEvent(this, eui.PropertyEvent.PROPERTY_CHANGE, "data");
                 this.dataChanged();
             },
             enumerable: true,
             configurable: true
         });
-        BaseComponent.prototype.addDataMap = function (name) {
+        Button.prototype.addDataMap = function (name) {
             if (this._dataMapArr.indexOf(name) == -1) {
                 this._dataMapArr.push(name);
             }
         };
-        Object.defineProperty(BaseComponent.prototype, "isFull", {
-            get: function () {
-                return this.$_state.isFull;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        BaseComponent.prototype.setFull = function () {
-            this.$_state.setFull();
-            return this;
+        Button.prototype.dataChanged = function () {
         };
-        BaseComponent.prototype.setData = function (data, type) {
-            if (type === void 0) { type = 'data'; }
-            if (type == 'data') {
-                this.data = data;
-            }
-            else {
-                this[type] = data;
-                if (data != null) {
-                    this.addDataMap(type);
-                    eui.PropertyEvent.dispatchPropertyEvent(this, eui.PropertyEvent.PROPERTY_CHANGE, type);
+        Button.prototype.onEnter = function () {
+        };
+        Button.prototype.onExit = function () {
+        };
+        Object.defineProperty(Button.prototype, "throttleFun", {
+            get: function () {
+                if (this._throttleFun == null) {
+                    this._throttleFun = core.fun.throttle(this.buttonReleased, this.throttleTime);
                 }
-            }
-            if (this._hook && data != null) {
-                this._hook.setData(data, type);
-            }
-            return this;
-        };
-        BaseComponent.prototype.dataChanged = function () {
-        };
-        BaseComponent.prototype.setState = function (name) {
-            this.currentState = name;
-            return this;
-        };
-        BaseComponent.prototype.setCompName = function (name) {
-            this.componentName = name;
-            return this;
-        };
-        Object.defineProperty(BaseComponent.prototype, "componentName", {
-            get: function () {
-                return this._componentName;
-            },
-            set: function (value) {
-                this._componentName = value;
+                return this._throttleFun;
             },
             enumerable: true,
             configurable: true
         });
-        BaseComponent.prototype.isType = function (type) {
-            return this.$_state.isType(type);
-        };
-        BaseComponent.prototype.setType = function (type) {
-            this.$_state.setType(type);
-        };
-        BaseComponent.prototype.onAddToStage = function (e) {
-            this.onEnter();
-        };
-        BaseComponent.prototype.onRemoveFromStage = function (e) {
+        Button.prototype.onRemoveFromStage = function (e) {
             this.onExit();
         };
-        BaseComponent.prototype.onEnter = function () {
-            var args = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i] = arguments[_i];
-            }
-            (_a = this.hook).onEnter.apply(_a, args);
-            var _a;
-        };
-        BaseComponent.prototype.onExit = function () {
-            this.hook.onExit();
-            this.destoryData();
-        };
-        BaseComponent.prototype.destoryData = function () {
+        Button.prototype.destoryData = function () {
             while (this._dataMapArr.length) {
                 this[this._dataMapArr.shift()] = null;
             }
-            this._args = [];
-            this._data = null;
-            this.componentName = "";
         };
-        return BaseComponent;
+        Button.prototype.dispose = function () {
+            this.removeEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
+            this.removeEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemoveFromStage, this);
+        };
+        Object.defineProperty(Button.prototype, "label", {
+            get: function () {
+                return this._label;
+            },
+            set: function (value) {
+                this._label = value;
+                if (this.labelDisplay) {
+                    this.labelDisplay.text = value;
+                }
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(Button.prototype, "icon", {
+            get: function () {
+                return this._icon;
+            },
+            set: function (value) {
+                this._icon = value;
+                if (this.iconDisplay) {
+                    this.setIconSource(value);
+                }
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Button.prototype.setIconSource = function (icon) {
+            if (this.iconDisplay && core.is.truthy(icon)) {
+                this.iconDisplay.source = icon;
+                this.iconDisplay.includeInLayout = this.iconDisplay.visible = true;
+            }
+            else if (this.iconDisplay) {
+                this.iconDisplay.includeInLayout = this.iconDisplay.visible = false;
+            }
+        };
+        /**
+         * 解除触碰事件处理。
+         * @param event 事件 <code>egret.TouchEvent</code> 的对象。
+         * @version Egret 3.0.1
+         * @version eui 1.0
+         * @platform Web,Native
+         * @language zh_CN
+         */
+        Button.prototype.onTouchCancle = function (event) {
+            var stage = event.$currentTarget;
+            stage.removeEventListener(egret.TouchEvent.TOUCH_CANCEL, this.onTouchCancle, this);
+            stage.removeEventListener(egret.TouchEvent.TOUCH_END, this.onStageTouchEnd, this);
+            this.touchCaptured = false;
+            this.invalidateState();
+        };
+        /**
+         * 触碰事件处理。
+         * @param event 事件 <code>egret.TouchEvent</code> 的对象。
+         * @version Egret 2.4
+         * @version eui 1.0
+         * @platform Web,Native
+         * @language zh_CN
+         */
+        Button.prototype.onTouchBegin = function (event) {
+            this.$stage.addEventListener(egret.TouchEvent.TOUCH_CANCEL, this.onTouchCancle, this);
+            this.$stage.addEventListener(egret.TouchEvent.TOUCH_END, this.onStageTouchEnd, this);
+            this.touchCaptured = true;
+            this.invalidateState();
+            event.updateAfterEvent();
+        };
+        /**
+         * @private
+         * 舞台上触摸弹起事件
+         */
+        Button.prototype.onStageTouchEnd = function (event) {
+            var stage = event.$currentTarget;
+            stage.removeEventListener(egret.TouchEvent.TOUCH_CANCEL, this.onTouchCancle, this);
+            stage.removeEventListener(egret.TouchEvent.TOUCH_END, this.onStageTouchEnd, this);
+            if (this.contains(event.target)) {
+                if (this.throttleTime > 0) {
+                    this.throttleFun();
+                }
+                else {
+                    this.buttonReleased();
+                }
+            }
+            this.touchCaptured = false;
+            this.invalidateState();
+        };
+        /**
+         * @inheritDoc
+         *
+         * @version Egret 2.4
+         * @version eui 1.0
+         * @platform Web,Native
+         */
+        Button.prototype.getCurrentState = function () {
+            var oldState = this.skin.currentState;
+            var newState = 'up';
+            if (!this.enabled)
+                newState = "disabled";
+            if (this.touchCaptured)
+                newState = "down";
+            if (this.skin.hasState(newState)) {
+                return newState;
+            }
+            return oldState;
+        };
+        /**
+         * @inheritDoc
+         *
+         * @version Egret 2.4
+         * @version eui 1.0
+         * @platform Web,Native
+         */
+        Button.prototype.partAdded = function (partName, instance) {
+            if (instance === this.labelDisplay) {
+                this.labelDisplay.text = this._label;
+            }
+            else if (instance == this.iconDisplay) {
+                this.iconDisplay.source = this._icon;
+            }
+        };
+        /**
+         * 当在用户单击按钮之后处理 <code>egret.TouchEvent.TOUCH_END</code> 事件时，将调用此方法。
+         * 仅当以按钮为目标，并且 <code>touchCaptured</code> 为 <code>true</code> 时，才会调用此方法。
+         * @version Egret 2.4
+         * @version eui 1.0
+         * @platform Web,Native
+         * @language zh_CN
+         */
+        Button.prototype.buttonReleased = function () {
+            if (core.is.truthy(this._notice)) {
+                var data = this.data;
+                if (!data) {
+                    var host = core.getHostComponent(this);
+                    if (host) {
+                        data = host.data;
+                    }
+                }
+                core.sendNotification(this._notice, { date: data, host: host, button: this });
+            }
+            if (this.name) {
+                core.sendNotification(core.k.CLICK_BUTTON, { name: this.name, button: this });
+            }
+        };
+        Button.THROTTLE_TIME = 0;
+        return Button;
     }(eui.Component));
-    core.BaseComponent = BaseComponent;
-    __reflect(BaseComponent.prototype, "core.BaseComponent", ["core.IComponent"]);
+    core.Button = Button;
+    __reflect(Button.prototype, "core.Button");
 })(core || (core = {}));
 var core;
 (function (core) {
@@ -1003,6 +1308,293 @@ var core;
     }());
     core.ComponentHook = ComponentHook;
     __reflect(ComponentHook.prototype, "core.ComponentHook", ["core.IComponentHook"]);
+})(core || (core = {}));
+var core;
+(function (core) {
+    var ComponentState = (function () {
+        function ComponentState(component) {
+            this._args = [];
+            this._listeners = [];
+            this._isFull = false;
+            this._component = component;
+            component.addEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
+            component.addEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
+        }
+        ComponentState.prototype.getArgs = function () {
+            return this._args;
+        };
+        ComponentState.prototype.setArgs = function (args) {
+            this._args = args;
+        };
+        Object.defineProperty(ComponentState.prototype, "isFull", {
+            get: function () {
+                return this._isFull;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        ComponentState.prototype.setFull = function () {
+            this._isFull = true;
+        };
+        ComponentState.prototype.isType = function (type) {
+            return this._type == type;
+        };
+        ComponentState.prototype.setType = function (type) {
+            this._type = type;
+        };
+        ComponentState.prototype.listener = function (component, type, func) {
+            if (!component || !func) {
+                return;
+            }
+            if (component.hasEventListener(type)) {
+                return;
+            }
+            this._listeners.push({ component: component, func: func, type: type });
+            component.addEventListener(type, func, this._component);
+        };
+        ComponentState.prototype.clearLiteners = function () {
+            while (this._listeners.length > 0) {
+                var listItem = this._listeners.shift();
+                listItem.component.removeEventListener(listItem.type, listItem.func, this);
+            }
+        };
+        ComponentState.prototype.onAddToStage = function (e) {
+            this._component.removeEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
+            (_a = this._component).onEnter.apply(_a, this._args);
+            var _a;
+        };
+        ComponentState.prototype.onRemovedFromStage = function () {
+            this._component.removeEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
+            this.clearLiteners();
+            this._component.onExit();
+        };
+        return ComponentState;
+    }());
+    core.ComponentState = ComponentState;
+    __reflect(ComponentState.prototype, "core.ComponentState");
+})(core || (core = {}));
+var core;
+(function (core) {
+    var ItemRenderer = (function (_super) {
+        __extends(ItemRenderer, _super);
+        function ItemRenderer() {
+            var _this = _super.call(this) || this;
+            _this._ignoreButton = false;
+            _this._dataMapArr = [];
+            _this._state = new core.ComponentState(_this);
+            return _this;
+        }
+        Object.defineProperty(ItemRenderer.prototype, "notice", {
+            get: function () {
+                return this._notice;
+            },
+            set: function (notice) {
+                this._notice = notice;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(ItemRenderer.prototype, "componentName", {
+            get: function () {
+                return this._componentName;
+            },
+            set: function (value) {
+                this._componentName = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(ItemRenderer.prototype, "ignoreButton", {
+            get: function () {
+                return this._ignoreButton;
+            },
+            set: function (value) {
+                this._ignoreButton = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(ItemRenderer.prototype, "data", {
+            get: function () {
+                return this.$_data;
+            },
+            set: function (val) {
+                this.$_data = val;
+                if (val != null) {
+                    this.addDataMap('data');
+                }
+                eui.PropertyEvent.dispatchPropertyEvent(this, eui.PropertyEvent.PROPERTY_CHANGE, "data");
+                this.dataChanged();
+            },
+            enumerable: true,
+            configurable: true
+        });
+        ItemRenderer.prototype.addDataMap = function (name) {
+            if (this._dataMapArr.indexOf(name) == -1) {
+                this._dataMapArr.push(name);
+            }
+        };
+        ItemRenderer.prototype.setData = function (data, type) {
+            if (type === void 0) { type = 'data'; }
+            this[type] = data;
+            if (data != null) {
+                this.addDataMap(type);
+            }
+            return this;
+        };
+        ItemRenderer.prototype.dataChanged = function () {
+            _super.prototype.dataChanged.call(this);
+        };
+        ItemRenderer.prototype.updateAttribute = function (attribute) {
+            this[attribute.name] = attribute.value;
+        };
+        ItemRenderer.prototype.setState = function (name) {
+            this.currentState = name;
+            return this;
+        };
+        ItemRenderer.prototype.setCompName = function (name) {
+            this.componentName = name;
+            return this;
+        };
+        ItemRenderer.prototype.listener = function (component, type, sender) {
+            this._state.listener(component, type, sender);
+        };
+        ItemRenderer.prototype.clearListeners = function () {
+            this._state.clearLiteners();
+        };
+        ItemRenderer.prototype.onEnter = function () {
+            core.setAttribute(this);
+            this.addEventListener(egret.TouchEvent.TOUCH_TAP, this.tap, this);
+        };
+        ItemRenderer.prototype.onExit = function () {
+            this.clearListeners();
+            this.removeEventListener(egret.TouchEvent.TOUCH_TAP, this.tap, this);
+        };
+        ItemRenderer.prototype.getCurrentState = function () {
+            if (this.enabled == false && this.skin.hasState('disabled')) {
+                return 'disabled';
+            }
+            var state = this.skin.currentState;
+            var s = _super.prototype.getCurrentState.call(this);
+            if (this.skin.hasState(s)) {
+                return s;
+            }
+            return state;
+        };
+        ItemRenderer.prototype.destoryData = function () {
+            while (this._dataMapArr.length) {
+                this[this._dataMapArr.shift()] = null;
+            }
+            core.destoryChildren(this);
+        };
+        ItemRenderer.prototype.tap = function (e) {
+            if (!this.ignoreButton && e.target instanceof core.Button) {
+                e.stopPropagation();
+                return;
+            }
+            if (core.is.truthy(this._notice)) {
+                core.sendNotification(this._notice, this.data, this);
+            }
+        };
+        ItemRenderer.prototype.getView = function (name) {
+            if (this[name]) {
+                return this[name];
+            }
+            return core.getChildByName(name, this);
+        };
+        return ItemRenderer;
+    }(eui.ItemRenderer));
+    core.ItemRenderer = ItemRenderer;
+    __reflect(ItemRenderer.prototype, "core.ItemRenderer", ["core.IComponent", "core.IAttributeHost"]);
+})(core || (core = {}));
+var core;
+(function (core) {
+    var ProgressBar = (function (_super) {
+        __extends(ProgressBar, _super);
+        function ProgressBar() {
+            return _super !== null && _super.apply(this, arguments) || this;
+        }
+        Object.defineProperty(ProgressBar.prototype, "data", {
+            get: function () {
+                return this._data;
+            },
+            set: function (value) {
+                this._data = value;
+                eui.PropertyEvent.dispatchPropertyEvent(this, eui.PropertyEvent.PROPERTY_CHANGE, "data");
+            },
+            enumerable: true,
+            configurable: true
+        });
+        return ProgressBar;
+    }(eui.ProgressBar));
+    core.ProgressBar = ProgressBar;
+    __reflect(ProgressBar.prototype, "core.ProgressBar");
+})(core || (core = {}));
+var core;
+(function (core) {
+    var RadioButton = (function (_super) {
+        __extends(RadioButton, _super);
+        function RadioButton() {
+            var _this = _super !== null && _super.apply(this, arguments) || this;
+            _this.customState = null;
+            return _this;
+        }
+        Object.defineProperty(RadioButton.prototype, "data", {
+            get: function () {
+                return this._data;
+            },
+            set: function (value) {
+                this._data = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(RadioButton.prototype, "notice", {
+            get: function () {
+                return this._notice;
+            },
+            set: function (value) {
+                this._notice = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        RadioButton.prototype.getCurrentState = function () {
+            var state = this.customState;
+            if (!state) {
+                state = this.skin.currentState;
+            }
+            if (this.selected) {
+                if (this.skin.hasState(state + 'AndSelected')) {
+                    return state + 'AndSelected';
+                }
+            }
+            else {
+                if (state.indexOf('AndSelected') > -1) {
+                    return state.replace('AndSelected', '');
+                }
+            }
+            return state;
+        };
+        RadioButton.prototype.buttonReleased = function () {
+            if (core.is.truthy(this._notice)) {
+                var data = this.data;
+                if (!data) {
+                    var host = core.getHostComponent(this);
+                    if (host) {
+                        data = host.data;
+                    }
+                }
+                core.sendNotification(this._notice, { date: data, host: host, button: this });
+            }
+            else {
+                _super.prototype.buttonReleased.call(this);
+            }
+        };
+        return RadioButton;
+    }(eui.RadioButton));
+    core.RadioButton = RadioButton;
+    __reflect(RadioButton.prototype, "core.RadioButton");
 })(core || (core = {}));
 var core;
 (function (core) {
@@ -1106,6 +1698,248 @@ var core;
 })(core || (core = {}));
 var core;
 (function (core) {
+    var ToggleButton = (function (_super) {
+        __extends(ToggleButton, _super);
+        function ToggleButton() {
+            return _super.call(this) || this;
+        }
+        Object.defineProperty(ToggleButton.prototype, "data", {
+            get: function () {
+                return this._data;
+            },
+            set: function (value) {
+                this._data = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(ToggleButton.prototype, "notice", {
+            get: function () {
+                return this._notice;
+            },
+            set: function (value) {
+                this._notice = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        ToggleButton.prototype.getButton = function (name) {
+            if (this.name == name) {
+                return this;
+            }
+        };
+        ToggleButton.prototype.getCurrentState = function () {
+            var state = this.skin.currentState;
+            if (this.selected) {
+                if (this.skin.hasState(state + 'AndSelected')) {
+                    return state + 'AndSelected';
+                }
+            }
+            else {
+                if (state.indexOf('AndSelected') > -1) {
+                    return state.replace('AndSelected', '');
+                }
+            }
+            return _super.prototype.getCurrentState.call(this);
+        };
+        ToggleButton.prototype.buttonReleased = function () {
+            if (core.is.truthy(this._notice)) {
+                var data = this.data;
+                if (!data) {
+                    var host = core.getHostComponent(this);
+                    if (host) {
+                        data = host.data;
+                    }
+                }
+                core.sendNotification(this._notice, { date: data, host: host, button: this });
+            }
+            else {
+                _super.prototype.buttonReleased.call(this);
+                if (this.name) {
+                    core.sendNotification(core.k.CLICK_BUTTON, this.name, this);
+                }
+            }
+        };
+        return ToggleButton;
+    }(eui.ToggleButton));
+    core.ToggleButton = ToggleButton;
+    __reflect(ToggleButton.prototype, "core.ToggleButton");
+})(core || (core = {}));
+var core;
+(function (core) {
+    var Tooltip = (function (_super) {
+        __extends(Tooltip, _super);
+        function Tooltip() {
+            var _this = _super.call(this) || this;
+            _this._items = [];
+            core.display.setFullDisplay(_this);
+            _this.touchEnabled = _this.touchChildren = false;
+            return _this;
+        }
+        Tooltip.prototype.show = function (arg, skinName) {
+            if (skinName === void 0) { skinName = undefined; }
+            var info;
+            if (core.is.string(arg)) {
+                info = { text: arg };
+            }
+            else {
+                info = arg;
+            }
+            if (!core.obj.hasValue(info, 'color')) {
+                info.color = 0;
+            }
+            if (!core.obj.hasValue(info, 'size')) {
+                info.size = 20;
+            }
+            if (!core.obj.hasValue(info, 'delay')) {
+                info.delay = 1500;
+            }
+            var item = core.pool.getPool(TooltipItem).pop(info, skinName);
+            this.createItem(item, info.delay);
+        };
+        Tooltip.prototype.createItem = function (item, delay) {
+            var _this = this;
+            this.addChild(item);
+            this._items.push(item);
+            item.animation.show(function () {
+                item.animation.delay(delay, function () {
+                    item.animation.close(function () {
+                        _this.removeItem(item);
+                    });
+                });
+            });
+            egret.callLater(function () {
+                _this.layout.layout(_this._items);
+            }, this);
+        };
+        Tooltip.prototype.removeItem = function (item) {
+            var idx = this._items.indexOf(item);
+            if (idx >= 0) {
+                this._items.splice(idx, 1);
+                core.pool.getPool(TooltipItem).push(item);
+                core.display.removeFromParent(item);
+            }
+        };
+        Tooltip.prototype.customView = function (skinName, data, delay) {
+            if (delay === void 0) { delay = 1500; }
+            var item = core.pool.getPool(TooltipItem).pop(data, skinName);
+            this.createItem(item, delay);
+        };
+        Object.defineProperty(Tooltip.prototype, "layout", {
+            get: function () {
+                if (!this._layout) {
+                    this._layout = core.getDefinitionInstance(core.App.tooltipLayout, TooltipLayout);
+                }
+                return this._layout;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        return Tooltip;
+    }(core.BaseComponent));
+    core.Tooltip = Tooltip;
+    __reflect(Tooltip.prototype, "core.Tooltip", ["core.ITooltip"]);
+    var TooltipItem = (function (_super) {
+        __extends(TooltipItem, _super);
+        function TooltipItem() {
+            var _this = _super.call(this) || this;
+            _this._animation = new TooltipAnimation(_this);
+            return _this;
+        }
+        TooltipItem.prototype.init = function (info, skinName) {
+            if (skinName) {
+                this.skinName = skinName;
+            }
+            else {
+                this.skinName = 'TooltipSkin';
+            }
+            this.data = info;
+            this.onEnter();
+        };
+        TooltipItem.prototype.onEnter = function () {
+            if (this.label) {
+                if (this.data.text.indexOf('<font') > -1) {
+                    this.label.textFlow = new egret.HtmlTextParser().parser(this.data.text);
+                }
+                else {
+                    this.label.text = this.data.text;
+                }
+            }
+        };
+        Object.defineProperty(TooltipItem.prototype, "animation", {
+            get: function () {
+                return this._animation;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        return TooltipItem;
+    }(core.BaseComponent));
+    __reflect(TooltipItem.prototype, "TooltipItem");
+    var TooltipAnimation = (function () {
+        function TooltipAnimation(item) {
+            this._item = item;
+        }
+        TooltipAnimation.prototype.show = function (callback) {
+            egret.Tween.removeTweens(this._item);
+            this._item.visible = true;
+            this._item.scaleX = this._item.scaleY = 2;
+            this._item.alpha = 1;
+            egret.Tween.get(this._item).to({ scaleX: 1, scaleY: 1 }, 300).call(callback);
+        };
+        TooltipAnimation.prototype.delay = function (delay, callback) {
+            egret.Tween.get(this._item).wait(delay).call(callback);
+        };
+        TooltipAnimation.prototype.close = function (callback) {
+            var _this = this;
+            egret.Tween.get(this._item).to({ alpha: 0 }, 200).call((function () {
+                egret.Tween.removeTweens(_this._item);
+                callback();
+            }));
+        };
+        return TooltipAnimation;
+    }());
+    __reflect(TooltipAnimation.prototype, "TooltipAnimation");
+    var TooltipLayout = (function () {
+        function TooltipLayout() {
+        }
+        TooltipLayout.prototype.getTotalHeight = function (items, offsetY) {
+            if (offsetY === void 0) { offsetY = 0; }
+            return items.reduce(function (a, b) {
+                return a + b.height;
+            }, 0) + items.length * offsetY;
+        };
+        TooltipLayout.prototype.layout = function (items) {
+            if (items.length == 0) {
+                return;
+            }
+            var offsetY = 5;
+            var len = items.length;
+            var w = core.display.stageW;
+            var h = core.display.stageH;
+            var minY = h / 2;
+            var maxY = h * 0.8;
+            var y = this.getTotalHeight(items, offsetY);
+            if (y < minY) {
+                y = minY;
+            }
+            else if (y > maxY) {
+                y = maxY;
+            }
+            var totalH = 0;
+            for (var i = len - 1; i >= 0; i--) {
+                core.display.setAnchor(items[i], 0.5);
+                items[i].y = y - totalH;
+                totalH += items[i].height + offsetY;
+                items[i].x = w / 2;
+            }
+        };
+        return TooltipLayout;
+    }());
+    __reflect(TooltipLayout.prototype, "TooltipLayout", ["core.ITooltipLayout"]);
+})(core || (core = {}));
+var core;
+(function (core) {
     var UIType;
     (function (UIType) {
         UIType[UIType["SCENE"] = 0] = "SCENE";
@@ -1117,9 +1951,9 @@ var core;
         UIType[UIType["TOOLTIP"] = 6] = "TOOLTIP";
     })(UIType = core.UIType || (core.UIType = {}));
     /**
-    * 游戏UI界面控制器
-    * 目前支持的容器(层级从下往上):场景层、公共UI层、面板层、菜单层、弹框层、新手引导层、浮动层
-    */
+     * 游戏UI界面控制器
+     * 目前支持的容器(层级从下往上):场景层、公共UI层、面板层、菜单层、弹框层、新手引导层、浮动层
+     */
     var UI = (function (_super) {
         __extends(UI, _super);
         function UI() {
@@ -1132,159 +1966,290 @@ var core;
             _this._common.touchEnabled = false;
             _this.addChild(_this._common);
             _this._panel = new eui.UILayer();
-            _this.addChild(_this._panel);
             _this._panel.touchEnabled = false;
+            _this.addChild(_this._panel);
             _this._menu = new eui.UILayer();
-            _this.addChild(_this._menu);
             _this._menu.touchEnabled = false;
+            _this.addChild(_this._menu);
+            _this._topScene = new eui.UILayer();
+            _this._topScene.touchEnabled = false;
+            _this.addChild(_this._topScene);
             _this._box = new eui.UILayer();
-            _this.addChild(_this._box);
             _this._box.touchEnabled = false;
+            _this.addChild(_this._box);
             _this._guide = new eui.UILayer();
-            _this.addChild(_this._guide);
             _this._guide.touchEnabled = false;
+            _this.addChild(_this._guide);
             _this._tooltip = new eui.UILayer();
-            _this.addChild(_this._tooltip);
             _this._tooltip.touchEnabled = false;
-            _this._containerArr = [_this._scene, _this._common, _this._panel, _this._menu, _this._box, _this._guide, _this._tooltip];
+            _this.addChild(_this._tooltip);
+            _this._containerArr = [_this._scene, _this._topScene, _this._menu, _this._panel, _this._common, _this._box, _this._guide, _this._tooltip];
             return _this;
         }
-        UI.prototype.setRoot = function (container) {
-            if (container) {
-                container.addChild(this);
-            }
-        };
-        UI.prototype.setMenu = function (menuType) {
-            var args = [];
-            for (var _i = 1; _i < arguments.length; _i++) {
-                args[_i - 1] = arguments[_i];
-            }
-            if (this._menuInst != null) {
-                this.remove(this._menuInst);
-            }
-            var menuInst = this.getTypeInst(menuType, args, UIType.MENU);
-            core.display.setFullDisplay(menuInst);
-            this._menuInst = menuInst;
-            this._menuInst.bottom = 0;
-            this._menuInst.horizontalCenter = 0;
-            this._menu.addChild(this._menuInst);
-        };
-        UI.prototype.runScene = function (sceneType) {
-            var args = [];
-            for (var _i = 1; _i < arguments.length; _i++) {
-                args[_i - 1] = arguments[_i];
-            }
-            if (this._sceneInst) {
-                this.remove(this._sceneInst);
-            }
-            var ret = this.addScene(sceneType, args);
-            return ret;
-        };
-        UI.prototype.addScene = function (sceneType) {
-            var args = [];
-            for (var _i = 1; _i < arguments.length; _i++) {
-                args[_i - 1] = arguments[_i];
-            }
-            var sceneInst = this.getTypeInst(sceneType, args, UIType.SCENE);
-            core.display.setFullDisplay(sceneInst);
-            this._sceneInst = sceneInst;
-            this._scene.addChild(sceneInst);
-            return sceneInst;
-        };
-        UI.prototype.addBox = function (boxType) {
-            var args = [];
-            for (var _i = 1; _i < arguments.length; _i++) {
-                args[_i - 1] = arguments[_i];
-            }
-            var boxInst = this.getTypeInst(boxType, args, UIType.BOX);
-            core.display.setFullDisplay(boxInst);
-            this._box.addChild(boxInst);
-            return boxInst;
-        };
-        UI.prototype.addPanel = function (panelType) {
-            var args = [];
-            for (var _i = 1; _i < arguments.length; _i++) {
-                args[_i - 1] = arguments[_i];
-            }
-            var panelInst = this.getTypeInst(panelType, args, UIType.PANEL);
-            core.display.setFullDisplay(panelInst);
-            this._panel.addChild(panelInst);
-            return panelInst;
-        };
-        UI.prototype.addCommon = function (commonType) {
-            var args = [];
-            for (var _i = 1; _i < arguments.length; _i++) {
-                args[_i - 1] = arguments[_i];
-            }
-            var commonInst = this.getTypeInst(commonType, args, UIType.COMMON);
-            core.display.setFullDisplay(commonInst);
-            this._common.addChild(commonInst);
-            return commonInst;
-        };
-        UI.prototype.addTooltip = function (tooltipType) {
-            var args = [];
-            for (var _i = 1; _i < arguments.length; _i++) {
-                args[_i - 1] = arguments[_i];
-            }
-            var tooltipInst = this.getTypeInst(tooltipType, args, UIType.TOOLTIP);
-            core.display.setFullDisplay(tooltipInst);
-            this._tooltip.addChild(tooltipInst);
-            return tooltipInst;
-        };
-        UI.prototype.getTypeInst = function (type, arg, uiType) {
-            var inst = null;
-            var skinName;
-            if (typeof (type) == "string") {
-                skinName = type;
-                type = core.BaseComponent;
-            }
-            if (type.constructor.name == "Function") {
-                inst = new (type.bind.apply(type, [void 0].concat(arg)))();
-            }
-            else {
-                inst = type;
-                inst.setArgs(arg);
-                if (skinName) {
-                    inst.skinName = skinName;
-                }
-            }
-            return inst;
-        };
-        UI.prototype.removeComponent = function (name) {
-            var obj = this.getComponent(name);
-            if (egret.is(obj, 'BaseComponent')) {
-                if (!this.isSingleContainer(obj)) {
-                    this.remove(obj);
-                }
-            }
-        };
-        UI.prototype.getComponent = function (name) {
-            for (var i = 0; i < this._containerArr.length; i++) {
-                var container = this._containerArr[i];
-                var component = this.getComponentByName(name, container);
-                if (component) {
-                    return component;
-                }
-            }
-            return null;
-        };
-        UI.prototype.getComponentByName = function (name, container) {
-            var num = container.numChildren;
-            for (var i = 0; i < num; i++) {
-                var child = container.getChildAt(i);
-                if (child.componentName == name) {
-                    return child;
-                }
-            }
-            return null;
-        };
-        UI.prototype.isSingleContainer = function (component) {
-            if (component.isType(UIType.SCENE) &&
-                component.isType(UIType.MENU)) {
-                return true;
-            }
-            return false;
-        };
+        // private showAnimation(component:BaseComponent):void {
+        //     egret.callLater(() => {
+        //         component.animation.show(() => {});
+        //     }, this);
+        // }
+        // private onEnter(component:BaseComponent):void {
+        //     if (component.animation) {
+        //         component.visible = true;
+        //         if (component.stage) {
+        //             this.showAnimation(component);
+        //         } else {
+        //             component.once(egret.Event.ADDED_TO_STAGE, () => {
+        //                 this.showAnimation(component);
+        //             }, this);
+        //         }
+        //     }
+        // }
+        // clearBox():void {
+        //     this.boxHistory.clear();
+        //     var count = this._box.numChildren;
+        //     while (count > 0) {
+        //         var box = this._box.getChildAt(0);
+        //         meru.UI.remove(box, false);
+        //         count--;
+        //     }
+        // }
+        // private onExit(component:BaseComponent, remove:boolean):void {
+        //     if (component.animation) {
+        //         component.animation.close(() => {
+        //             component.visible = false;
+        //             if (remove) {
+        //                 component.destoryData();
+        //                 display.removeFromParent(component, true);
+        //             }
+        //         })
+        //     } else {
+        //         if (remove) {
+        //             component.destoryData();
+        //             display.removeFromParent(component, true);
+        //         }
+        //     }
+        // }
+        // private setAnimation(animationName:string, instanceObj:any):void {
+        //     if (!instanceObj.animation && animationName)  {
+        //         var animType = egret.getDefinitionByName(animationName);
+        //         if (animType) {
+        //             var animInstance = new animType();
+        //             instanceObj.animation = animInstance;
+        //         }
+        //     }
+        // }
+        // private onRemoveBox(boxDisplay:any):void {
+        //     var group = boxDisplay['__box_group__'];
+        //     if (group) {
+        //         var arr = this._sequenceBoxMap[group];
+        //         if (arr) {
+        //             var idx = arr.indexOf(boxDisplay);
+        //             if (idx > -1) {
+        //                 arr.splice(idx, 1);
+        //             }
+        //             if (arr.length == 0) {
+        //                 delete this._sequenceBoxMap[group];
+        //                 this.dispatchEvent(new UIEvent(UIEvent.CLEAR_SEQUENCE_BOX, null, group));
+        //             } else {
+        //                 var top = arr.shift();
+        //                 this.runSeqBox(arr, group, top);
+        //             }
+        //         }
+        //     }
+        // }
+        // private getTypeInst(type: any, animation:string, args: any[], uiType:UIType): BaseComponent {
+        //     var inst = null;
+        //     var skinName;
+        //     if (typeof type == 'string') {
+        //         skinName = type;
+        //         if (uiType == UIType.BOX) {
+        //             type = meru.getDefinitionType(getSetting().BoxClass, meru.BaseComponent);
+        //         } else {
+        //             type = meru.BaseComponent;
+        //         }
+        //     }
+        //     if (type.constructor.name == "Function") {
+        //         inst = new type(...args);
+        //     } else {
+        //         inst = type;
+        //         if (inst.setManual) {
+        //             inst.setManual(true);
+        //         }
+        //         if (inst.setArgs) {
+        //             inst.setArgs(args);
+        //         }
+        //     }
+        //     if (skinName) {
+        //         inst.skinName = skinName;
+        //     }
+        //     if (egret.is(inst, 'meru.BaseComponent')) {
+        //         inst.setType(uiType);
+        //     }
+        //     this.setAnimation(animation, inst);
+        //     this.onEnter(inst);
+        //     if (inst.hasOwnProperty('removeing')) {
+        //         delete inst.removeing;
+        //     }
+        //     return inst;
+        // }
+        // private _addPanel(panelType:any, args):BaseComponent {
+        //     this.hidePanel(this._currentPanel);
+        //     var panelInst = this.getTypeInst(panelType, getSetting().PanelAnimation, args, UIType.PANEL);
+        //     display.setFullDisplay(panelInst);
+        //     this._panel.addChild(panelInst);
+        //     this._currentPanel = panelInst;
+        //     this.dispatchEvent(new UIEvent(UIEvent.SHOW_PANEL, panelInst));
+        //     return panelInst;
+        // }
+        // addBox(boxType: any, args): BaseComponent {
+        //     var boxInst = this.getTypeInst(boxType, getSetting().BoxAnimation, args, UIType.BOX);
+        //     display.setFullDisplay(boxInst);
+        //     this._box.addChild(boxInst);
+        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_BOX, boxInst));
+        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, boxInst));
+        //     return boxInst;
+        // }
+        // private checkHistory(gotoHistory: boolean, history: UIHistory, gotoBackFun: Function): void {
+        //     if (!history) {
+        //         return;
+        //     }
+        //     if (gotoHistory) {
+        //         if (history.hasHistory()) {
+        //             history.popHistory();
+        //             var item = history.popHistory();
+        //             if (item) {
+        //                 gotoBackFun(item);
+        //             }
+        //         }
+        //     } else {
+        //         history.clear();
+        //     }
+        // }
+        // remove(displayObj: any, isHistory: boolean = null, checkHistory:boolean = true): void {
+        //     if (displayObj.removeing === true) {
+        //         return;
+        //     }
+        //     displayObj.removeing = true;
+        //     var gotoHistory = isHistory;
+        //     if (isHistory == null && displayObj.isHistoryComponent()) {
+        //         gotoHistory = true;
+        //     }
+        //     if (displayObj.isType(UIType.BOX) === true) {
+        //         this.onExit(displayObj, true);
+        //         if (checkHistory) {
+        //             this.checkHistory(gotoHistory, this.boxHistory, (item) =>
+        //                 this.addHistoryBox(item.type, item.args)
+        //             );
+        //         }
+        //     } else if (displayObj.isType(UIType.SCENE) === true) {
+        //         this.onExit(displayObj, true);
+        //         if (checkHistory) {
+        //             this.checkHistory(gotoHistory, this.sceneHistory, (item) =>
+        //                 this.addScene(item.type, item.isUnder, item.args)
+        //             );
+        //         }
+        //     } else if (displayObj.isType(UIType.PANEL) === true) {
+        //         this.hidePanel(displayObj);
+        //         if (checkHistory) {
+        //             this.checkHistory(gotoHistory, this.panelHistory, (item) => {
+        //                 this.restoreHookList(this.showHistoryPanel(item.type, item.args), item.hookList);
+        //             });
+        //         }
+        //     } else {
+        //         this.onExit(displayObj, true);
+        //     }
+        //     if (displayObj.isType(UIType.BOX) === true) {
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_BOX, displayObj));
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
+        //         this.onRemoveBox(displayObj);
+        //     } else if (displayObj.isType(UIType.SCENE) === true) {
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_SCENE, displayObj));
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
+        //     } else if (displayObj.isType(UIType.MENU) === true) {
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_MENU, displayObj));
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
+        //     } else if (displayObj.isType(UIType.GUIDE) === true) {
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_GUIDE, displayObj));
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
+        //     } else if (displayObj.isType(UIType.TOOLTIP) === true) {
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_TOOLTIP, displayObj));
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
+        //     } else if (displayObj.isType(UIType.COMMON) === true) {
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMMON, displayObj));
+        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
+        //     }
+        // }
+        // private restoreHookList(panel, hookList:any[]):void {
+        //     for (var i = 0; i < hookList.length; i ++) {
+        //         var item = hookList[i];
+        //         if (item.action == 'setData') {
+        //             panel.setData(item.data, item.type);
+        //         } else if (item.action == 'addOperate') {
+        //             var data = item.data;
+        //             item.operate.unserialize(data);
+        //             panel.addOperate(item.operate);
+        //         }
+        //     }
+        // }
+        // private _sceneInst: BaseComponent;
+        // get sceneHistory():UIHistory {
+        //     return typeSingleton('__UI_SCENE__', UIHistory);
+        // }
+        // runScene(sceneType: any, args): meru.BaseComponent {
+        //     if (is.truthy(this._sceneInst)) {
+        //         this.remove(this._sceneInst, null, false);
+        //     }
+        //     var ret = this.addScene(sceneType, true, args);
+        //     return ret;
+        // }
+        // runTopScene(sceneType: any, args): meru.BaseComponent {
+        //     if (is.truthy(this._sceneInst)) {
+        //         this.remove(this._sceneInst, null, false);
+        //     }
+        //     var ret = this.addScene(sceneType, false, args);
+        //     return ret;
+        // }
+        // private addScene(sceneType, isUnderScene:boolean, args): meru.BaseComponent {
+        //     this.sceneHistory.pushHistory(sceneType, args, isUnderScene);
+        //     var sceneInst = this.getTypeInst(sceneType, getSetting().SceneAnimation, args, UIType.SCENE);
+        //     display.setFullDisplay(sceneInst);
+        //     this._sceneInst = sceneInst;
+        //     if (isUnderScene) {
+        //         this._scene.addChild(sceneInst);
+        //     } else {
+        //         this._topScene.addChild(sceneInst);
+        //     }
+        //     this._sceneInst.setHistoryComponent(true);
+        //     this._menu.visible = isUnderScene;
+        //     this.dispatchEvent(new UIEvent(UIEvent.RUN_SCENE, this._sceneInst));
+        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, this._sceneInst));
+        //     return sceneInst;
+        // }
+        // addCommon(commonType: any, args): meru.BaseComponent {
+        //     var commonInst = this.getTypeInst(commonType, null, args, UIType.COMMON);
+        //     display.setFullDisplay(commonInst);
+        //     this._common.addChild(commonInst);
+        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMMON, commonInst));
+        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, commonInst));
+        //     return commonInst;
+        // }
+        // addTooltip(tooltipType:any, args):meru.BaseComponent {
+        //     var tooltipInst = this.getTypeInst(tooltipType, null, args, UIType.TOOLTIP);
+        //     display.setFullDisplay(tooltipInst);
+        //     this._tooltip.addChild(tooltipInst);
+        //     if (egret.is(tooltipInst, 'meru.BaseComponent')) {
+        //         this.dispatchEvent(new UIEvent(UIEvent.ADD_TOOLTIP, tooltipInst));
+        //         this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, tooltipInst));
+        //     }
+        //     return tooltipInst;
+        // }
+        // addGuide(guideType:any, args):any {
+        //     var guideInst = this.getTypeInst(guideType, null, args, UIType.GUIDE);
+        //     display.setFullDisplay(guideInst);
+        //     this._guide.addChild(guideInst);
+        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_GUIDE, guideInst));
+        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, guideInst));
+        //     return guideInst;
+        // }
         UI.prototype.getContainerByType = function (type) {
             switch (type) {
                 case UIType.BOX: {
@@ -1311,15 +2276,124 @@ var core;
             }
             return null;
         };
-        UI.prototype.remove = function (component) {
-            if (!component)
-                return;
-            // component.dispose();
-            core.display.removeFromParent(component);
+        UI.prototype.hasPanel = function () {
+            var panel = this._panel;
+            var num = panel.numChildren;
+            for (var i = 0; i < num; i++) {
+                var child = panel.getChildAt(i);
+                if (child.visible) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        // static hasPanel():boolean {
+        //     return meru.singleton(UI).hasPanel();
+        // }
+        UI.prototype.getComponentByName = function (name, container) {
+            var num = container.numChildren;
+            for (var i = 0; i < num; i++) {
+                var child = container.getChildAt(i);
+                if (child.componentName == name) {
+                    return child;
+                }
+            }
+            return null;
         };
         return UI;
     }(eui.UILayer));
-    __reflect(UI.prototype, "UI");
+    core.UI = UI;
+    __reflect(UI.prototype, "core.UI");
+})(core || (core = {}));
+var core;
+(function (core) {
+    /**
+     * 按钮点击动画效果
+     * 在Main.ts中指定
+     */
+    var ButtonAnimation = (function () {
+        function ButtonAnimation() {
+            this._sx = null;
+            this._sy = null;
+        }
+        ButtonAnimation.prototype.show = function (component, callback) {
+            var group = component;
+            if (group) {
+                if (this._sx == null && this._sy == null) {
+                    this._sx = group.scaleX;
+                    this._sy = group.scaleY;
+                }
+                group.scaleX = this._sx;
+                group.scaleY = this._sy;
+                egret.Tween.get(group).to({ scaleX: this._sx + 0.04, scaleY: this._sy + 0.04 }, 100);
+            }
+        };
+        ButtonAnimation.prototype.hide = function (component, callback) {
+            var group = component;
+            if (group) {
+                egret.Tween.get(group).to({ scaleX: this._sx, scaleY: this._sy }, 100);
+            }
+        };
+        return ButtonAnimation;
+    }());
+    __reflect(ButtonAnimation.prototype, "ButtonAnimation", ["core.IAnimation"]);
+    /**
+     * 弹框打开/关闭动画效果
+     */
+    var BoxAnimation = (function () {
+        function BoxAnimation() {
+        }
+        BoxAnimation.prototype.show = function (c, callback) {
+            var rect = c.getView('rect');
+            var group = c.getView('group');
+            var tw = null;
+            if (rect) {
+                var alpha = rect.alpha;
+                rect.alpha = 0;
+                tw = egret.Tween.get(rect).to({ alpha: alpha }, 150);
+            }
+            if (group) {
+                var sx = group.scaleX;
+                var sy = group.scaleY;
+                var alpha = group.alpha;
+                group.scaleX = sx * 0.5;
+                group.scaleY = sy * 0.5;
+                group.alpha = 0;
+                tw = egret.Tween.get(group).to({ alpha: alpha, scaleX: sx, scaleY: sy }, 150);
+            }
+            if (callback) {
+                if (tw) {
+                    tw.call(callback);
+                }
+                else {
+                    callback();
+                }
+            }
+        };
+        BoxAnimation.prototype.hide = function (c, callback) {
+            var rect = c.getView('rect');
+            var group = c.getView('group');
+            var tw = null;
+            if (rect) {
+                tw = egret.Tween.get(rect).to({ alpha: 0 }, 100);
+            }
+            if (group) {
+                var sx = group.scaleX * 0.5;
+                var sy = group.scaleY * 0.5;
+                tw = egret.Tween.get(group).to({ alpha: 0, scaleX: sx, scaleY: sy }, 100);
+            }
+            if (callback) {
+                if (tw) {
+                    tw.call(callback);
+                }
+                else {
+                    callback();
+                }
+            }
+        };
+        return BoxAnimation;
+    }());
+    __reflect(BoxAnimation.prototype, "BoxAnimation", ["core.IAnimation"]);
 })(core || (core = {}));
 var core;
 (function (core) {
@@ -1747,7 +2821,7 @@ var core;
         };
         /**
          * 移除显示对象,可以是egret的显示对象,也可以是继承组件
-         * @param child 子显示对象  child:egret.DisplayObject|BaseComponent
+         * @param child 子显示对象
          */
         display.removeFromParent = function (child) {
             if (child && child.parent) {
@@ -1783,6 +2857,51 @@ var core;
     }());
     core.display = display;
     __reflect(display.prototype, "core.display");
+})(core || (core = {}));
+var core;
+(function (core) {
+    var fun = (function () {
+        function fun() {
+        }
+        fun.throttle = function (fn, delay, immediate, debounce) {
+            if (immediate === void 0) { immediate = false; }
+            var curr = +new Date(), //当前事件
+            last_call = 0, last_exec = 0, timer = null, diff, //时间差
+            context, //上下文
+            args, exec = function () {
+                last_exec = curr;
+                fn.apply(context, args);
+            };
+            return function () {
+                curr = +new Date();
+                context = this,
+                    args = arguments,
+                    diff = curr - (debounce ? last_call : last_exec) - delay;
+                clearTimeout(timer);
+                if (debounce) {
+                    if (immediate) {
+                        timer = setTimeout(exec, this, delay);
+                    }
+                    else if (diff >= 0) {
+                        exec();
+                    }
+                }
+                else {
+                    if (diff >= 0) {
+                        exec();
+                    }
+                    else if (immediate) {
+                        timer = setTimeout(exec, this, -diff);
+                    }
+                }
+                last_call = curr;
+            };
+        };
+        ;
+        return fun;
+    }());
+    core.fun = fun;
+    __reflect(fun.prototype, "core.fun");
 })(core || (core = {}));
 var core;
 (function (core) {
@@ -1887,6 +3006,131 @@ var core;
 })(core || (core = {}));
 var core;
 (function (core) {
+    var obj = (function () {
+        function obj() {
+        }
+        //利用递归来实现深拷贝，如果对象属性的值是引用类型（Array,Object），那么对该属性进行深拷贝，直到遍历到属性的值是基本类型为止。  
+        obj.deepClone = function (obj) {
+            if (!obj && typeof obj !== 'object') {
+                return;
+            }
+            var newObj = Array.isArray(obj) ? [] : {};
+            for (var key in obj) {
+                if (obj[key]) {
+                    if (obj[key] && typeof obj[key] === 'object') {
+                        newObj[key] = Array.isArray(obj[key]) ? [] : {};
+                        //递归
+                        newObj[key] = this.deepClone(obj[key]);
+                    }
+                    else {
+                        newObj[key] = obj[key];
+                    }
+                }
+            }
+            return newObj;
+        };
+        obj.deepClone2 = function (obj) {
+            return JSON.parse(JSON.stringify(obj));
+        };
+        /**
+         * @desc 深拷贝，支持常见类型
+         * @param {Any} values
+         */
+        obj.deepCloneCommon = function (values) {
+            var copy;
+            // Handle the 3 simple types, and null or undefined
+            if (null == values || "object" != typeof values)
+                return values;
+            // Handle Date
+            if (values instanceof Date) {
+                copy = new Date();
+                copy.setTime(values.getTime());
+                return copy;
+            }
+            // Handle Array
+            if (values instanceof Array) {
+                copy = [];
+                for (var i = 0, len = values.length; i < len; i++) {
+                    copy[i] = this.deepCloneCommon(values[i]);
+                }
+                return copy;
+            }
+            // Handle Object
+            if (values instanceof Object) {
+                copy = {};
+                for (var attr in values) {
+                    if (values.hasOwnProperty(attr))
+                        copy[attr] = this.deepCloneCommon(values[attr]);
+                }
+                return copy;
+            }
+            throw new Error("Unable to copy values! Its type isn't supported.");
+        };
+        obj.simpleClone = function (obj) {
+            if (typeof obj !== 'object')
+                return null;
+            var newObj = Array.isArray(obj) ? [] : {};
+            for (var key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    newObj[key] = obj[key];
+                }
+            }
+            // Object.assign(newObj,obj);
+            return newObj;
+        };
+        obj.getValue = function (data, key, defVal) {
+            if (defVal === void 0) { defVal = null; }
+            if (core.is.falsy(data)) {
+                return defVal;
+            }
+            key = key + "";
+            var keyArr = key.split('.');
+            var curObj = data;
+            for (var i = 0; i < keyArr.length; i++) {
+                var key = keyArr[i];
+                if (core.is.array(curObj)) {
+                    curObj = curObj[parseInt(key)];
+                }
+                else {
+                    if (key == '') {
+                        curObj = curObj;
+                    }
+                    else {
+                        curObj = curObj[key];
+                    }
+                }
+                if (!core.is.existy(curObj)) {
+                    break;
+                }
+            }
+            if (!core.is.existy(curObj)) {
+                return defVal;
+            }
+            return curObj;
+        };
+        obj.hasValue = function (data, key) {
+            if (!data) {
+                return false;
+            }
+            key = key + "";
+            var keyArr = key.split('.');
+            var obj = data;
+            while (keyArr.length > 0 && obj) {
+                var k = keyArr.shift();
+                if (!obj.hasOwnProperty(k)) {
+                    return false;
+                }
+                obj = obj[k];
+            }
+            return true;
+        };
+        return obj;
+    }());
+    core.obj = obj;
+    __reflect(obj.prototype, "core.obj");
+})(core || (core = {}));
+var core;
+(function (core) {
     /**
      * 对象池
      */
@@ -1941,7 +3185,8 @@ var core;
         };
         return ObjectPool;
     }());
-    __reflect(ObjectPool.prototype, "ObjectPool");
+    core.ObjectPool = ObjectPool;
+    __reflect(ObjectPool.prototype, "core.ObjectPool");
     var pool = (function () {
         function pool() {
         }
@@ -1975,7 +3220,8 @@ var core;
         pool._poolMap = new Map();
         return pool;
     }());
-    __reflect(pool.prototype, "pool");
+    core.pool = pool;
+    __reflect(pool.prototype, "core.pool");
 })(core || (core = {}));
 var core;
 (function (core) {
