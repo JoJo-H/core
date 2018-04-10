@@ -85,12 +85,22 @@ module core {
         }
     }
 
-    class TooltipItem extends BaseComponent {
+    class TooltipItem extends eui.Component {
         private _animation : TooltipAnimation;
         public data:TooltipInfo;
         constructor() {
             super();
+            this.addEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
+            // this.addEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
             this._animation = new TooltipAnimation(this);
+        }
+        onAddToStage(e):void {
+            // this.removeEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
+            this.onEnter();
+        }
+        onRemovedFromStage():void {
+            // this.removeEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
+            this.onExit();
         }
 
         public init(info:any, skinName:string):void {
@@ -111,6 +121,10 @@ module core {
                     this.label.text = this.data.text;
                 }
             }
+        }
+
+        public onExit():void{
+            
         }
 
         get animation():TooltipAnimation {
@@ -187,6 +201,6 @@ module core {
 
 
     export interface ITooltipLayout {
-        layout(items:BaseComponent[]):void;
+        layout(items:eui.Component[]):void;
     }
 }

@@ -1,13 +1,34 @@
 module core {
 
-    export enum UIType {
-        SCENE,
-        COMMON,
-        PANEL,
-        MENU,
-        BOX,
-        GUIDE,
-        TOOLTIP
+    export type UIType = string | ComponentType | IComponent | { new (): IComponent };
+    export enum ComponentType {
+        None,
+        Scene,
+        Panel,
+        Menu,
+        Box,
+        Guide,
+        Tooltip
+    }
+    export function isInstance<T>(type: T): boolean {
+        if (type.constructor != Object.constructor) {
+            return true;
+        }
+        return false;
+    }
+    export function isType<T>(type: T): boolean {
+        if (type.constructor == Object.constructor) {
+            return true;
+        }
+        return false;
+    }
+    export interface ISeqBoxInfo {
+        type:UIType;
+        group:string;
+        priority:number;
+        index:number;
+        args:any[];
+        resolve?:any;
     }
 
     /**
@@ -15,14 +36,18 @@ module core {
      * 目前支持的容器(层级从下往上):场景层、公共UI层、面板层、菜单层、弹框层、新手引导层、浮动层
      */
     export class UI extends eui.UILayer {
-        private _tooltip: eui.UILayer;
-        private _guide: eui.UILayer;
-        private _box: eui.UILayer;
-        private _common: eui.UILayer;
-        private _panel: eui.UILayer;
-        private _menu: eui.UILayer;
-        private _scene: eui.UILayer;
-        private _topScene: eui.UILayer;
+        static SEQ_BOX_KEY:string = "__seq_box__";
+        static SEQ_GROUP_KEY:string = "__seq_group__";
+        static STACK_BOX_KEY:string = "__stack_box__";
+        private _components: IComponent[] = [];
+
+        private _tooltipLayer: eui.UILayer;
+        private _guideLayer: eui.UILayer;
+        private _boxLayer: eui.UILayer;
+        private _commonLayer: eui.UILayer;
+        private _panelLayer: eui.UILayer;
+        private _menuLayer: eui.UILayer;
+        private _sceneLayer: eui.UILayer;
 
         private _containerArr: eui.UILayer[];
 
@@ -31,600 +56,300 @@ module core {
 
             this.touchEnabled = false;
 
-            this._scene = new eui.UILayer();
-            this._scene.touchEnabled = false;
-            this.addChild(this._scene);
+            this._sceneLayer = new eui.UILayer();
+            this._sceneLayer.touchEnabled = false;
+            this.addChild(this._sceneLayer);
 
-            this._common = new eui.UILayer();
-            this._common.touchEnabled = false;
-            this.addChild(this._common);
+            this._commonLayer = new eui.UILayer();
+            this._commonLayer.touchEnabled = false;
+            this.addChild(this._commonLayer);
 
-            this._panel = new eui.UILayer();
-            this._panel.touchEnabled = false;
-            this.addChild(this._panel);
+            this._panelLayer = new eui.UILayer();
+            this._panelLayer.touchEnabled = false;
+            this.addChild(this._panelLayer);
 
-            this._menu = new eui.UILayer();
-            this._menu.touchEnabled = false;
-            this.addChild(this._menu);
+            this._menuLayer = new eui.UILayer();
+            this._menuLayer.touchEnabled = false;
+            this.addChild(this._menuLayer);
 
-            this._topScene = new eui.UILayer();
-            this._topScene.touchEnabled = false;
-            this.addChild(this._topScene);
+            this._boxLayer = new eui.UILayer();
+            this._boxLayer.touchEnabled = false;
+            this.addChild(this._boxLayer);
 
-            this._box = new eui.UILayer();
-            this._box.touchEnabled = false;
-            this.addChild(this._box);
+            this._guideLayer = new eui.UILayer();
+            this._guideLayer.touchEnabled = false;
+            this.addChild(this._guideLayer);
 
-            this._guide = new eui.UILayer();
-            this._guide.touchEnabled = false;
-            this.addChild(this._guide);
+            this._tooltipLayer = new eui.UILayer();
+            this._tooltipLayer.touchEnabled = false;
+            this.addChild(this._tooltipLayer);
 
-            this._tooltip = new eui.UILayer();
-            this._tooltip.touchEnabled = false;
-            this.addChild(this._tooltip);
-
-            this._containerArr = [this._scene, this._topScene, this._menu, this._panel, this._common, this._box, this._guide, this._tooltip];
+            this._containerArr = [this._sceneLayer, this._menuLayer, this._panelLayer, this._commonLayer, this._boxLayer, this._guideLayer, this._tooltipLayer];
         }
 
-        // private showAnimation(component:BaseComponent):void {
-        //     egret.callLater(() => {
-        //         component.animation.show(() => {});
-        //     }, this);
-        // }
+        openBox(type:UIType, args:any[]):core.IComponent {
+            var component = this.addUI(type, ComponentType.Box, this._boxLayer, args);
+            if (style.animation.box) {
+                component.setAnimation(style.animation.box);
+            }
+            this.onEnter(component, args);
+            return component;
+        }
 
-        // private onEnter(component:BaseComponent):void {
-        //     if (component.animation) {
-        //         component.visible = true;
-        //         if (component.stage) {
-        //             this.showAnimation(component);
-        //         } else {
-        //             component.once(egret.Event.ADDED_TO_STAGE, () => {
-        //                 this.showAnimation(component);
-        //             }, this);
-        //         }
-        //     }
-        // }
+        addTooltip(type:UIType, args:any[]):IComponent {
+            var component = this.addUI(type, ComponentType.Tooltip, this._tooltipLayer, args);
+            this.onEnter(component, args);
+            return component;
+        }
 
-        // clearBox():void {
-        //     this.boxHistory.clear();
-        //     var count = this._box.numChildren;
-        //     while (count > 0) {
-        //         var box = this._box.getChildAt(0);
-        //         meru.UI.remove(box, false);
-        //         count--;
-        //     }
-        // }
+        runScene(type:UIType, args:any[]):IComponent {
+            var oldScene = this.getComponentByType(ComponentType.Scene);
+            if (oldScene) {
+                this.remove(oldScene);
+            }
 
-        // private onExit(component:BaseComponent, remove:boolean):void {
-        //     if (component.animation) {
-        //         component.animation.close(() => {
-        //             component.visible = false;
-        //             if (remove) {
-        //                 component.destoryData();
-        //                 display.removeFromParent(component, true);
-        //             }
-        //         })
-        //     } else {
-        //         if (remove) {
-        //             component.destoryData();
-        //             display.removeFromParent(component, true);
-        //         }
-        //     }
-        // }
+            var component = this.addUI(type, ComponentType.Scene, this._sceneLayer, args);
+            if (style.animation.scene) {
+                component.setAnimation(style.animation.scene);
+            }
+            this.onEnter(component, args);
+            return component;
+        }
 
-        // private setAnimation(animationName:string, instanceObj:any):void {
-        //     if (!instanceObj.animation && animationName)  {
-        //         var animType = egret.getDefinitionByName(animationName);
-        //         if (animType) {
-        //             var animInstance = new animType();
-        //             instanceObj.animation = animInstance;
-        //         }
-        //     }
-        // }
+        showPanel(type:UIType, args:any[]):IComponent {
+            var component = this.addUI(type, ComponentType.Panel, this._panelLayer, args);
+            if (style.animation.panel) {
+                component.setAnimation(style.animation.panel);
+            }
+            this.onEnter(component, args);
+            return component;
+        }
 
+        private addUI(type:UIType, compType:ComponentType, parent:eui.UILayer, args:any[]):IComponent {
+            var component = this.createComponent(type);
+            component.setCompType(compType);
+            this._components.push(component);
+            component.setArgs(args);
+            parent.addChild(<any>component);
+            return component
+        }
 
-        // private onRemoveBox(boxDisplay:any):void {
-        //     var group = boxDisplay['__box_group__'];
-        //     if (group) {
-        //         var arr = this._sequenceBoxMap[group];
-        //         if (arr) {
-        //             var idx = arr.indexOf(boxDisplay);
-        //             if (idx > -1) {
-        //                 arr.splice(idx, 1);
-        //             }
+        private createComponent(type: UIType): IComponent {
+            var newInst:IComponent;
+            if (is.string(type)) {
+                var component = new BaseComponent();
+                component.skinName = type;
+                newInst = component;
+            } else if (isInstance(type)) {
+                newInst = <any>type;
+            } else if (isType(type)) {
+                var t:any = type;
+                newInst = new t();
+            }
+            // newInst.setFull();
+            return newInst;
+        }
 
-        //             if (arr.length == 0) {
-        //                 delete this._sequenceBoxMap[group];
-        //                 this.dispatchEvent(new UIEvent(UIEvent.CLEAR_SEQUENCE_BOX, null, group));
-        //             } else {
-        //                 var top = arr.shift();
-        //                 this.runSeqBox(arr, group, top);
-        //             }
-        //         }
-        //     }
-        // }
-
-        // private getTypeInst(type: any, animation:string, args: any[], uiType:UIType): BaseComponent {
-        //     var inst = null;
-
-        //     var skinName;
-        //     if (typeof type == 'string') {
-        //         skinName = type;
-        //         if (uiType == UIType.BOX) {
-        //             type = meru.getDefinitionType(getSetting().BoxClass, meru.BaseComponent);
-        //         } else {
-        //             type = meru.BaseComponent;
-        //         }
-        //     }
-        //     if (type.constructor.name == "Function") {
-        //         inst = new type(...args);
-        //     } else {
-        //         inst = type;
-        //         if (inst.setManual) {
-        //             inst.setManual(true);
-        //         }
-        //         if (inst.setArgs) {
-        //             inst.setArgs(args);
-        //         }
-        //     }
-        //     if (skinName) {
-        //         inst.skinName = skinName;
-        //     }
-
-        //     if (egret.is(inst, 'meru.BaseComponent')) {
-        //         inst.setType(uiType);
-        //     }
-
-        //     this.setAnimation(animation, inst);
-        //     this.onEnter(inst);
-        //     if (inst.hasOwnProperty('removeing')) {
-        //         delete inst.removeing;
-        //     }
-        //     return inst;
-        // }
-
-        // private _addPanel(panelType:any, args):BaseComponent {
-        //     this.hidePanel(this._currentPanel);
-        //     var panelInst = this.getTypeInst(panelType, getSetting().PanelAnimation, args, UIType.PANEL);
-        //     display.setFullDisplay(panelInst);
-
-        //     this._panel.addChild(panelInst);
-
-        //     this._currentPanel = panelInst;
-
-        //     this.dispatchEvent(new UIEvent(UIEvent.SHOW_PANEL, panelInst));
-
-        //     return panelInst;
-        // }
-
-        // addBox(boxType: any, args): BaseComponent {
-        //     var boxInst = this.getTypeInst(boxType, getSetting().BoxAnimation, args, UIType.BOX);
-        //     display.setFullDisplay(boxInst);
-
-        //     this._box.addChild(boxInst);
-
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_BOX, boxInst));
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, boxInst));
-
-        //     return boxInst;
-        // }
-
-        // private checkHistory(gotoHistory: boolean, history: UIHistory, gotoBackFun: Function): void {
-        //     if (!history) {
-        //         return;
-        //     }
-        //     if (gotoHistory) {
-        //         if (history.hasHistory()) {
-        //             history.popHistory();
-        //             var item = history.popHistory();
-        //             if (item) {
-        //                 gotoBackFun(item);
-        //             }
-        //         }
-        //     } else {
-        //         history.clear();
-        //     }
-        // }
-
-        // remove(displayObj: any, isHistory: boolean = null, checkHistory:boolean = true): void {
-        //     if (displayObj.removeing === true) {
-        //         return;
-        //     }
-
-        //     displayObj.removeing = true;
-
-        //     var gotoHistory = isHistory;
-
-        //     if (isHistory == null && displayObj.isHistoryComponent()) {
-        //         gotoHistory = true;
-        //     }
-
-        //     if (displayObj.isType(UIType.BOX) === true) {
-        //         this.onExit(displayObj, true);
-        //         if (checkHistory) {
-        //             this.checkHistory(gotoHistory, this.boxHistory, (item) =>
-        //                 this.addHistoryBox(item.type, item.args)
-        //             );
-        //         }
-        //     } else if (displayObj.isType(UIType.SCENE) === true) {
-        //         this.onExit(displayObj, true);
-        //         if (checkHistory) {
-        //             this.checkHistory(gotoHistory, this.sceneHistory, (item) =>
-        //                 this.addScene(item.type, item.isUnder, item.args)
-        //             );
-        //         }
-        //     } else if (displayObj.isType(UIType.PANEL) === true) {
-        //         this.hidePanel(displayObj);
-        //         if (checkHistory) {
-        //             this.checkHistory(gotoHistory, this.panelHistory, (item) => {
-        //                 this.restoreHookList(this.showHistoryPanel(item.type, item.args), item.hookList);
-        //             });
-        //         }
-        //     } else {
-        //         this.onExit(displayObj, true);
-        //     }
-
-        //     if (displayObj.isType(UIType.BOX) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_BOX, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //         this.onRemoveBox(displayObj);
-        //     } else if (displayObj.isType(UIType.SCENE) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_SCENE, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //     } else if (displayObj.isType(UIType.MENU) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_MENU, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //     } else if (displayObj.isType(UIType.GUIDE) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_GUIDE, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //     } else if (displayObj.isType(UIType.TOOLTIP) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_TOOLTIP, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //     } else if (displayObj.isType(UIType.COMMON) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMMON, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //     }
-        // }
-
-        // private restoreHookList(panel, hookList:any[]):void {
-        //     for (var i = 0; i < hookList.length; i ++) {
-        //         var item = hookList[i];
-        //         if (item.action == 'setData') {
-        //             panel.setData(item.data, item.type);
-        //         } else if (item.action == 'addOperate') {
-        //             var data = item.data;
-        //             item.operate.unserialize(data);
-        //             panel.addOperate(item.operate);
-        //         }
-        //     }
-        // }
-
-        // private _sceneInst: BaseComponent;
-
-        // get sceneHistory():UIHistory {
-        //     return typeSingleton('__UI_SCENE__', UIHistory);
-        // }
-
-        // runScene(sceneType: any, args): meru.BaseComponent {
-        //     if (is.truthy(this._sceneInst)) {
-        //         this.remove(this._sceneInst, null, false);
-        //     }
-        //     var ret = this.addScene(sceneType, true, args);
-        //     return ret;
-        // }
-
-        // runTopScene(sceneType: any, args): meru.BaseComponent {
-        //     if (is.truthy(this._sceneInst)) {
-        //         this.remove(this._sceneInst, null, false);
-        //     }
-        //     var ret = this.addScene(sceneType, false, args);
-        //     return ret;
-        // }
-
-        // private addScene(sceneType, isUnderScene:boolean, args): meru.BaseComponent {
-        //     this.sceneHistory.pushHistory(sceneType, args, isUnderScene);
-        //     var sceneInst = this.getTypeInst(sceneType, getSetting().SceneAnimation, args, UIType.SCENE);
-        //     display.setFullDisplay(sceneInst);
-        //     this._sceneInst = sceneInst;
-        //     if (isUnderScene) {
-        //         this._scene.addChild(sceneInst);
-        //     } else {
-        //         this._topScene.addChild(sceneInst);
-        //     }
-        //     this._sceneInst.setHistoryComponent(true);
-        //     this._menu.visible = isUnderScene;
-        //     this.dispatchEvent(new UIEvent(UIEvent.RUN_SCENE, this._sceneInst));
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, this._sceneInst));
-        //     return sceneInst;
-        // }
-
-        // addCommon(commonType: any, args): meru.BaseComponent {
-        //     var commonInst = this.getTypeInst(commonType, null, args, UIType.COMMON);
-        //     display.setFullDisplay(commonInst);
-        //     this._common.addChild(commonInst);
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMMON, commonInst));
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, commonInst));
-        //     return commonInst;
-        // }
-
-        // addTooltip(tooltipType:any, args):meru.BaseComponent {
-        //     var tooltipInst = this.getTypeInst(tooltipType, null, args, UIType.TOOLTIP);
-        //     display.setFullDisplay(tooltipInst);
-        //     this._tooltip.addChild(tooltipInst);
-        //     if (egret.is(tooltipInst, 'meru.BaseComponent')) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.ADD_TOOLTIP, tooltipInst));
-        //         this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, tooltipInst));
-        //     }
-        //     return tooltipInst;
-        // }
-
-        // addGuide(guideType:any, args):any {
-        //     var guideInst = this.getTypeInst(guideType, null, args, UIType.GUIDE);
-        //     display.setFullDisplay(guideInst);
-        //     this._guide.addChild(guideInst);
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_GUIDE, guideInst));
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, guideInst));
-        //     return guideInst;
-        // }
-
-        getContainerByType(type:UIType) {
-            switch (type) {
-                case UIType.BOX: {
-                    return this._box;
+        private onEnter(component:IComponent, args:any[]):void {
+            if (component.animation) {
+                component.visible = true;
+                if (component.stage) {
+                    this.showAnimation(component, args);
+                } else {
+                    component.once(egret.Event.ADDED_TO_STAGE, () => {
+                        this.showAnimation(component, args);
+                    }, this);
                 }
-                case UIType.SCENE: {
-                    return this._scene;
-                }
-                case UIType.GUIDE: {
-                    return this._guide;
-                }
-                case UIType.COMMON: {
-                    return this._common;
-                }
-                case UIType.MENU: {
-                    return this._menu;
-                }
-                case UIType.TOOLTIP: {
-                    return this._tooltip;
-                }
-                case UIType.PANEL: {
-                    return this._panel;
+            } else {
+                this.showAnimation(component, args);
+            }
+        }
+
+        private showAnimation(component:IComponent, args:any[]):void {
+            component.onEnter(...args);
+            if (component.animation) {
+                egret.callLater(() => {
+                    component.animation.show(component, () => {});
+                }, this);
+            }
+        }
+
+        private getComponentByType(componentType:ComponentType):IComponent {
+            for (var i = 0; i < this._components.length; i ++) {
+                if (this._components[i].getCompType() == componentType) {
+                    return this._components[i];
                 }
             }
             return null;
         }
 
-        hasPanel():boolean {
-            var panel = this._panel;
-            var num = panel.numChildren;
-            for (var i = 0; i < num; i ++) {
-                var child = panel.getChildAt(i);
-                if (child.visible) {
+        remove(type:UIType):boolean {
+            var has = false;
+            for (var i = this._components.length - 1; i >= 0; i --) {
+                var component = this._components[i];
+                if (this.compareType(type, component)) {
+                    this._components.splice(i, 1);
+                    var disObj:any = component;
+                    this.onExit(component, true);
+                    has = true;
+                    //关掉序列栈里面的视图时，需要打开下一个视图
+                    if (component[UI.SEQ_BOX_KEY] == true) {
+                        this.checkSeqBox(component[UI.SEQ_GROUP_KEY]);
+                    }
+                    //关掉显示栈中视图时，返回上一个打开的视图
+                    if (component[UI.STACK_BOX_KEY] === true) {
+                        this.setStackBoxVisible(true);
+                    }
+                }
+            }
+            return has;
+        }
+
+        private compareType(type: UIType, component: IComponent): boolean {
+            if (is.string(type)) {
+                return component.name == type;
+            } else if (is.number(type)) {
+                return component.getCompType() == type;
+            } else if (isInstance(type)) {
+                return component == type;
+            } else if (isType(type)) {
+                return component.constructor == type;
+            }
+            return false;
+        }
+
+        private onExit(component:IComponent, forcerRemove:boolean):void {
+            component.onExit();
+            if (component.animation) {
+                component.animation.hide(component, () => {
+                    component.visible = false;
+                    if (forcerRemove) {
+                        display.removeFromParent(component);
+                    }
+                })
+            } else {
+                if (forcerRemove) {
+                    display.removeFromParent(component);
+                }
+            }
+        }
+
+        private static SeqBoxIndex:number = 1;
+        //string做索引
+        private _seqBoxStack:{[key:string]:ISeqBoxInfo[]} = {};
+        /**
+         * 打开序列弹窗，默认组名normal为序列弹窗 -- 只有最优先的弹窗关闭后下一个弹窗才会打开
+         * @param type ui类型
+         * @param args 参数
+         */
+        openSeqBox(type:UIType,args:any[]):Promise<IComponent>{
+            return this.openSeqBoxWithGroup('normal',type,0,args);
+        }
+        //分组打开弹窗,暂时只考虑一个组normal
+        openSeqBoxWithGroup(group:string, type:UIType, priority:number, args:any[]):Promise<IComponent>{
+            let obj : ISeqBoxInfo = {type,args,priority,group,index:UI.SeqBoxIndex++};
+            let promise = new Promise<IComponent>((resolve,reject)=>{
+                obj.resolve = resolve;
+            });
+            if(!this._seqBoxStack[group]){
+                this._seqBoxStack[group] = [];
+            }
+            this._seqBoxStack[group].push(obj);
+            this._seqBoxStack[group].sort((a,b)=>{
+                if (a.priority == b.priority) {
+                    return a.index - b.index;
+                }
+                return a.priority - b.priority;
+            });
+            if (group == "normal") {
+                this.checkSeqBox(group);
+            }
+            return promise;
+        }
+        //TODO
+        private _showGroupResolve:any = {};
+        //检测序列弹窗
+        private checkSeqBox(group:string) {
+            //是否序列栈中有数据，并且舞台上没有是序列弹窗标识的视图，就添加最优先视图
+            if(this._seqBoxStack[group] && this._seqBoxStack[group].length > 0 
+                && !this.hasComponent2Key(UI.SEQ_GROUP_KEY,group,UI.SEQ_BOX_KEY,true)){
+                let obj = this._seqBoxStack[group].shift();
+                let ui = this.openBox(obj.type,obj.args);
+                ui[UI.SEQ_BOX_KEY] = true;
+                ui[UI.SEQ_GROUP_KEY] = obj.group;
+                obj.resolve(ui);
+            } else if (this._showGroupResolve.hasOwnProperty(group)) {
+                this._showGroupResolve[group]();
+                delete this._showGroupResolve[group];
+            }
+        }
+        //额外手动打开序列栈视图
+        showSeqBoxWithGroup(group:string) {
+            return new Promise((resolve, reject) => {
+                if (this._seqBoxStack[group] &&
+                    this._seqBoxStack[group].length > 0) {
+                    this._showGroupResolve[group] = resolve;
+                    this.checkSeqBox(group);
+                }
+            });
+        }
+
+        //打开下一个栈视图，隐藏当前栈视图；关闭时再打开当前视图；返回的效果
+        openStackBox(type: UIType, args: any[]):IComponent{
+            this.setStackBoxVisible(false);
+            let box = this.openBox(type, args);
+            box[UI.STACK_BOX_KEY] = true;
+            return box;
+        }
+        private setStackBoxVisible(visible):void{
+            let boxLayer = this._boxLayer;
+            let num = boxLayer.numChildren;
+            let first = true;
+            for (let i = num - 1; i >= 0; i --) {
+                let box = boxLayer.getChildAt(i);
+                if (box[UI.STACK_BOX_KEY] === true) {
+                    if (visible) {
+                        box.visible = first;
+                        first = false;
+                    } else {
+                        box.visible = false;
+                    }
+                }
+            }
+        }
+
+        //是否存在视图 双key
+        private hasComponent2Key(key1:string,val1:any,key2:string,val2:any):boolean {
+            for (var i = 0, len = this._components.length; i < len; i ++) {
+                if (this._components[i][key1] == val1 && this._components[i][key2] == val2) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        //是否存在视图
+        private hasComponent(key:string,val:any):boolean {
+            for (var i = 0, len = this._components.length; i < len; i ++) {
+                if (this._components[i][key] == val) {
                     return true;
                 }
             }
             return false;
         }
 
-        // static hasPanel():boolean {
-        //     return meru.singleton(UI).hasPanel();
-        // }
-
-        private getComponentByName(name: string, container: egret.DisplayObjectContainer): BaseComponent {
-            var num = container.numChildren;
-            for (var i = 0; i < num; i++) {
-                var child: BaseComponent = <BaseComponent>container.getChildAt(i);
-                if (child.componentName == name) {
-                    return child;
-                }
-            }
-            return null;
+        static clearBox():void {
+            singleton(UI).clearBox();
         }
 
-        // getComponent(name: string): IComponent {
-        //     var pullComponent = <any>meru.pullObject(k.GetComponent, name);
-        //     if (pullComponent != null && pullComponent != name) {
-        //         return pullComponent;
-        //     }
-
-        //     for (var i = 0; i < this._containerArr.length; i++) {
-        //         var container = this._containerArr[i];
-
-        //         var component = this.getComponentByName(name, container);
-
-        //         if (component) {
-        //             return component;
-        //         }
-        //     }
-        //     return null;
-        // }
-
-        // private isSingleContainer(component: any): boolean {
-        //     if (component.isType(UIType.SCENE) &&
-        //         component.isType(UIType.MENU)) {
-        //         return true;
-        //     }
-        //     return false;
-        // }
-
-        // removeComponent(name: string): void {
-        //     var obj: any = this.getComponent(name);
-        //     if (egret.is(obj, 'meru.BaseComponent')) {
-        //         if (!this.isSingleContainer(obj)) {
-        //             this.remove(obj);
-        //         }
-        //     }
-        // }
-
-        // private _menuInst: any;
-
-        // setMenu(menuType: any, args): void {
-        //     if (this._menuInst != null) {
-        //         this.remove(this._menuInst);
-        //     }
-
-        //     var menuInst = this.getTypeInst(menuType, null, args, UIType.MENU);
-        //     display.setFullDisplay(menuInst);
-        //     this._menuInst = menuInst;
-        //     this._menuInst.bottom = 0;
-        //     this._menu.addChild(this._menuInst);
-        //     this.dispatchEvent(new UIEvent(UIEvent.SET_MENU, menuInst));
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, menuInst));
-        // }
-
-        // setRoot(container: egret.DisplayObjectContainer): void {
-        //     if (container) {
-        //         container.addChild(this);
-        //     }
-        // }
-
-        // static runTopScene(sceneType:any, ...args): core.BaseComponent {
-        //     return singleton(UI).runTopScene(sceneType, args);
-        // }
-
-        // static runScene(sceneType: any, ...args): core.BaseComponent {
-        //     return singleton(UI).runScene(sceneType, args);
-        // }
-
-        // static setMenu(menuType: any, ...args): void {
-        //     singleton(UI).setMenu(menuType, args);
-        // }
-
-        // static addCommon(commonType: any, ...args): core.BaseComponent {
-        //     return singleton(UI).addCommon(commonType, args);
-        // }
-
-        // static injectionPanel(name: string, type: any, ...args): void {
-        //     args.unshift(name);
-        //     singleton(UI).injectionPanel(name, type, args);
-        // }
-
-        // static panelIsVisible(name:string):boolean {
-        //     return singleton(UI).panelIsDisplay(name);
-        // }
-
-        // showPanel(name:any, args:any[]):BaseComponent {
-        //     if ((is.string(name) && name.indexOf('Skin') > -1) || !is.string(name)) {
-        //         return this._addPanel(name, args);
-        //     } else {
-        //         return this._showPanel(name, args);
-        //     }
-        // }
-
-        // static showPanel(name: any, ...args): BaseComponent {
-        //     return singleton(UI).showPanel(name, args);
-        // }
-
-        // static getComponent<T extends IComponent>(name:string): T;
-        // static getComponent(name: string): IComponent {
-        //     return singleton(UI).getComponent(name);
-        // }
-
-        // static addBox(type: any, ...args): BaseComponent {
-        //     return singleton(UI).addBox(type, args);
-        // }
-
-        // static addSequenceBox(type: any, ...args):void {
-        //     singleton(UI).addSequnceBox(type, '_normal_', -99999, args);
-        // }
-
-        // static getSequenceCount(group:string):number {
-        //     return singleton(UI).getSequnceCount(group);
-        // }
-
-        // static runGroupSequenceBox(group:string):void {
-        //     singleton(UI).runSequnceBox(group);
-        // }
-
-        // static addGroupSequenceBox(type:any, group:string, priority:number, ...args):void {
-        //     singleton(UI).addSequnceBox(type, group, priority, args);
-        // }
-
-        // static addGroupSequenceFun(fun:(callback:Function) => void, group:string, priority:number):void {
-        //     singleton(UI).addSequnceBox(null, group, priority, [fun], 'fun');
-        // }
-
-        // static addHistoryBox(type: any, ...args): void {
-        //     singleton(UI).addHistoryBox(type, args);
-        // }
-
-        // static showHistoryPanel(type: any, ...args):meru.BaseComponent {
-        //     return singleton(UI).showHistoryPanel(type, args)
-        // }
-
-        // static addGuide(type:any, ...args):core.BaseComponent {
-        //     return singleton(UI).addGuide(type, args);
-        // }
-
-        // static addEventListener(type:string, func:Function, context?:Object):void {
-        //     singleton(UI).addEventListener(type, func, context);
-        // }
-
-        // static once(type:string, func:Function, context?:Object):void {
-        //     singleton(UI).once(type, func, context);
-        // }
-
-        // static removeEventListener(type:string, func:Function, context?:Object):void {
-        //     singleton(UI).removeEventListener(type, func, context);
-        // }
-
-        // static addTooltip(type:any, ...args):core.BaseComponent {
-        //     return singleton(UI).addTooltip(type, args);
-        // }
-
-        // static remove(inst: any, gotoHistory: boolean = null): void {
-        //     singleton(UI).remove(inst, gotoHistory);
-        // }
-
-        // static clearBox():void {
-        //     singleton(UI).clearBox();
-        // }
-
-        // static getMenu():any {
-        //     var ui = singleton(UI)._menuInst;
-        //     return ui;
-        // }
-
-        // static getScene():any {
-        //     var ui = singleton(UI)._sceneInst;
-        //     return ui;
-        // }
-
-        // static getContainerByType(type:UIType):egret.DisplayObjectContainer {
-        //     return singleton(UI).getContainerByType(type);
-        // }
-
-        // // static hidePanel(panel?: any): void {
-        // //     singleton(UI).hidePanel(panel);
-        // // }
-
-        // static removeByName(name: string): void {
-        //     singleton(UI).removeComponent(name);
-        // }
-
-        // static get panelHistory():UIHistory {
-        //     return singleton(UI).panelHistory;
-        // }
-
-        // static setBoxVisible(visible:boolean, without:BaseComponent = null):void {
-        //     var u = singleton(UI);
-        //     for (var i = 0, len = u._box.numChildren; i < len ; i ++) {
-        //         if (u._box.getChildAt(i) != without) {
-        //             u._box.getChildAt(i).visible = visible;
-        //         }
-        //     }
-        // }
-
-        // static get boxHistory():UIHistory {
-        //     return singleton(UI).boxHistory;
-        // }
-
-        // static get sceneHistory():UIHistory {
-        //     return singleton(UI).sceneHistory;
-        // }
-
-        // static setRoot(container: egret.DisplayObjectContainer): void {
-        //     singleton(UI).setRoot(container);
-        // }
+        clearBox():void {
+            for (var i = this._components.length - 1; i >= 0; i --) {
+                var component = this._components[i];
+                if (component.getCompType() == ComponentType.Box) {
+                    this.remove(component);
+                }
+            }
+        }
     }
+
 }
+

@@ -25,14 +25,31 @@ module core {
         }
         setFull():void {
             this._isFull = true;
+            this.full()
         }
 
-        private _type:UIType;
-        isType(type:UIType):boolean {
+        full(): this {
+            this._component.width = App.stage.stageWidth;
+            this._component.height = App.stage.stageHeight;
+            App.stage.removeEventListener(egret.Event.RESIZE, this.onResize, this);
+            App.stage.addEventListener(egret.Event.RESIZE, this.onResize, this);
+            return this;
+        }
+
+        private onResize():void {
+            this._component.width = App.stage.stageWidth;
+            this._component.height = App.stage.stageHeight;
+        }
+
+        private _type:ComponentType;
+        isType(type:ComponentType):boolean {
             return this._type == type;
         }
-        setType(type:UIType):void {
+        setCompType(type:ComponentType):void {
             this._type = type;
+        }
+        getCompType():ComponentType{
+            return this._type;
         }
 
         listener(component:eui.Component,type:string,func:(e:egret.Event) => void):void {
@@ -58,6 +75,9 @@ module core {
         }
         onRemovedFromStage():void {
             this._component.removeEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
+            if(this._isFull){
+                App.stage.removeEventListener(egret.Event.RESIZE, this.onResize, this);
+            }
             this.clearLiteners();
             this._component.onExit();
         }

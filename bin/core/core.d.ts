@@ -4,9 +4,15 @@ declare module core {
         onExit(): void;
         listener(component: eui.Component, type: string, sender: (e: egret.Event) => void): void;
         setState(name: string): IComponent;
+        setArgs(args: any[]): void;
         setData(data: any, type?: any): IComponent;
         setCompName(name: string): IComponent;
+        setFull(): IComponent;
         getView(name: any): egret.DisplayObject;
+        setCompType(type: ComponentType): void;
+        getCompType(): ComponentType;
+        animation: IAnimation;
+        setAnimation(animationType: IAnimation): IComponent;
     }
     class BaseComponent extends eui.Component implements IComponent {
         private _data;
@@ -25,18 +31,21 @@ declare module core {
         getOperateByName(name: string): IComponentOperate<any>[];
         getArgs(): any;
         setArgs(args: any): void;
+        private _animation;
+        readonly animation: IAnimation;
+        setAnimation(animation: IAnimation): IComponent;
         updateAttribute(attribute: Attribute): void;
         data: any;
         private addDataMap(name);
         readonly isFull: boolean;
-        setFull(): this;
+        setFull(): IComponent;
         setData(data: any, type?: any): BaseComponent;
         protected dataChanged(): void;
-        setState(name: string): this;
-        setCompName(name: string): this;
+        setState(name: string): IComponent;
+        setCompName(name: string): IComponent;
         componentName: string;
-        isType(type: UIType): boolean;
-        setType(type: UIType): void;
+        getCompType(): ComponentType;
+        setCompType(type: ComponentType): void;
         private onAddToStage(e);
         private onRemoveFromStage(e);
         onEnter(...args: any[]): void;
@@ -46,6 +55,16 @@ declare module core {
     }
 }
 declare module core {
+    class ToggleButton extends eui.ToggleButton {
+        private _data;
+        data: any;
+        private _notice;
+        notice: string;
+        constructor();
+        getButton(name: string): this;
+        protected getCurrentState(): string;
+        protected buttonReleased(): void;
+    }
 }
 declare module core {
     class DBFaseMovie extends egret.DisplayObjectContainer implements IMovie {
@@ -395,9 +414,12 @@ declare module core {
         private _isFull;
         readonly isFull: boolean;
         setFull(): void;
+        full(): this;
+        private onResize();
         private _type;
-        isType(type: UIType): boolean;
-        setType(type: UIType): void;
+        isType(type: ComponentType): boolean;
+        setCompType(type: ComponentType): void;
+        getCompType(): ComponentType;
         listener(component: eui.Component, type: string, func: (e: egret.Event) => void): void;
         clearLiteners(): void;
         onAddToStage(e: any): void;
@@ -406,7 +428,7 @@ declare module core {
 }
 declare module core {
     class ItemRenderer extends eui.ItemRenderer implements IComponent, IAttributeHost {
-        private _state;
+        private _compState;
         constructor();
         private _notice;
         notice: string;
@@ -414,6 +436,14 @@ declare module core {
         componentName: string;
         private _ignoreButton;
         ignoreButton: boolean;
+        getArgs(): any;
+        setArgs(args: any): void;
+        setFull(): IComponent;
+        setCompType(type: ComponentType): void;
+        getCompType(): ComponentType;
+        private _animation;
+        readonly animation: IAnimation;
+        setAnimation(animation: IAnimation): IComponent;
         private $_data;
         data: any;
         private _dataMapArr;
@@ -449,6 +479,37 @@ declare module core {
         customState: string;
         protected buttonReleased(): void;
     }
+}
+declare module core {
+    interface IUIAnimation {
+        box?: IAnimation;
+        panel?: IAnimation;
+        scene?: IAnimation;
+        button?: IAnimation;
+    }
+    interface ITooltipStyle {
+        skinName?: string;
+        textColor?: number;
+        textSize?: number;
+        textFont?: string;
+    }
+    interface IButtonStyle {
+        tapLight?: boolean;
+    }
+    interface IConfirmStyle {
+        skinName?: string;
+        yes?: string;
+        no?: string;
+        defaultShowClose?: boolean;
+        title?: string;
+    }
+    interface IStyle {
+        animation: IUIAnimation;
+        tooltip: ITooltipStyle;
+        button: IButtonStyle;
+        confirm: IConfirmStyle;
+    }
+    var style: IStyle;
 }
 declare module core {
     enum MovieType {
@@ -496,18 +557,6 @@ declare module core {
     }
 }
 declare module core {
-    class ToggleButton extends eui.ToggleButton {
-        private _data;
-        data: any;
-        private _notice;
-        notice: string;
-        constructor();
-        getButton(name: string): this;
-        protected getCurrentState(): string;
-        protected buttonReleased(): void;
-    }
-}
-declare module core {
     interface ITooltip {
         show(info: TooltipInfo | string, skinName?: string): void;
         customView(skinName: string, data: any, delay?: number): void;
@@ -534,33 +583,49 @@ declare module core {
     }
 }
 declare module core {
-    enum UIType {
-        SCENE = 0,
-        COMMON = 1,
-        PANEL = 2,
-        MENU = 3,
-        BOX = 4,
-        GUIDE = 5,
-        TOOLTIP = 6,
+    type UIType = string | ComponentType | IComponent | {
+        new (): IComponent;
+    };
+    enum ComponentType {
+        None = 0,
+        Scene = 1,
+        Panel = 2,
+        Menu = 3,
+        Box = 4,
+        Guide = 5,
+        Tooltip = 6,
     }
+    function isInstance<T>(type: T): boolean;
+    function isType<T>(type: T): boolean;
     /**
      * 游戏UI界面控制器
      * 目前支持的容器(层级从下往上):场景层、公共UI层、面板层、菜单层、弹框层、新手引导层、浮动层
      */
     class UI extends eui.UILayer {
-        private _tooltip;
-        private _guide;
-        private _box;
-        private _common;
-        private _panel;
-        private _menu;
-        private _scene;
-        private _topScene;
+        static SEQ_BOX_KEY: string;
+        static SEQ_GROUP_KEY: string;
+        static STACK_BOX_KEY: string;
+        private _components;
+        private _tooltipLayer;
+        private _guideLayer;
+        private _boxLayer;
+        private _commonLayer;
+        private _panelLayer;
+        private _menuLayer;
+        private _sceneLayer;
         private _containerArr;
         constructor();
-        getContainerByType(type: UIType): eui.UILayer;
-        hasPanel(): boolean;
-        private getComponentByName(name, container);
+        openBox(type: UIType, args: any[]): core.IComponent;
+        private addUI(type, compType, parent, args);
+        private createComponent(type);
+        private onEnter(component, args);
+        private showAnimation(component, args);
+        addTooltip(type: UIType, args: any[]): IComponent;
+        runScene(type: UIType, args: any[]): IComponent;
+        private getComponentByType(componentType);
+        remove(type: UIType): boolean;
+        private compareType(type, component);
+        private onExit(component, forcerRemove);
     }
 }
 declare module core {
@@ -568,6 +633,9 @@ declare module core {
         show(target: IComponent, calblack: Function): void;
         hide(target: IComponent, callback: Function): void;
     }
+}
+declare class GuideSystem {
+    constructor();
 }
 declare module core {
     interface IMediator {

@@ -1,32 +1,32 @@
 
 module core {
-    interface IUIAnimation {
+    export interface IUIAnimation {
         box?: IAnimation;
         panel?: IAnimation;
         scene?: IAnimation;
         button?: IAnimation;
     }
-    interface ITooltipStyle {
+    export interface ITooltipStyle {
         skinName?: string;
         textColor?: number;
         textSize?: number;
         textFont?: string;
     }
-    interface IButtonStyle {
+    export interface IButtonStyle {
         tapLight?: boolean;
     }
-    interface IConfirmStyle {
+    export interface IConfirmStyle {
         skinName?: string;
         yes?: string;
         no?: string;
         defaultShowClose?: boolean;
         title?: string;
     }
-    interface IStyle {
+    export interface IStyle {
         animation: IUIAnimation;
         tooltip: ITooltipStyle;
         button: IButtonStyle;
         confirm: IConfirmStyle;
     }
-    var style: IStyle;
+    export var style: IStyle;
 }

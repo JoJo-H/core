@@ -6,9 +6,15 @@ module core {
         onExit():void;
         listener(component:eui.Component,type:string,sender:(e:egret.Event) => void):void;
         setState(name:string):IComponent;
+        setArgs(args:any[]):void ;
         setData(data:any, type?:any):IComponent;
         setCompName(name:string):IComponent;
+        setFull():IComponent;
         getView(name):egret.DisplayObject;
+        setCompType(type:ComponentType):void
+        getCompType():ComponentType;
+        animation: IAnimation;
+        setAnimation(animationType: IAnimation): IComponent;
     }
 
     export class BaseComponent extends eui.Component implements IComponent{
@@ -65,6 +71,15 @@ module core {
             this._compState.setArgs(args);
         }
 
+        protected _animation: IAnimation;
+        get animation(): IAnimation {
+            return this._animation;
+        }
+        setAnimation(animation: IAnimation): IComponent {
+            this._animation = animation;
+            return this;
+        }
+
         updateAttribute(attribute:Attribute):void {
             this[attribute.name] = attribute.value;
         }
@@ -89,7 +104,7 @@ module core {
         public get isFull(): boolean  {
             return this._compState.isFull;
         }
-        setFull():this {
+        setFull():IComponent {
             this._compState.setFull();
             return this;
         }
@@ -114,12 +129,12 @@ module core {
         protected dataChanged():void {
         }
 
-        setState(name:string):this {
+        setState(name:string):IComponent {
             this.currentState = name;
             return this;
         }
 
-        setCompName(name:string):this {
+        setCompName(name:string):IComponent {
             this.componentName = name;
             return this;
         }
@@ -130,11 +145,11 @@ module core {
             this._componentName = value;
         }
 
-        isType(type:UIType):boolean {
-            return this._compState.isType(type);
+        getCompType():ComponentType {
+            return this._compState.getCompType();
         }
-        setType(type:UIType):void {
-            this._compState.setType(type);
+        setCompType(type:ComponentType):void {
+            this._compState.setCompType(type);
         }
 
         private onAddToStage(e:egret.Event):void {

@@ -64,6 +64,17 @@ var core;
         BaseComponent.prototype.setArgs = function (args) {
             this._compState.setArgs(args);
         };
+        Object.defineProperty(BaseComponent.prototype, "animation", {
+            get: function () {
+                return this._animation;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        BaseComponent.prototype.setAnimation = function (animation) {
+            this._animation = animation;
+            return this;
+        };
         BaseComponent.prototype.updateAttribute = function (attribute) {
             this[attribute.name] = attribute.value;
         };
@@ -135,11 +146,11 @@ var core;
             enumerable: true,
             configurable: true
         });
-        BaseComponent.prototype.isType = function (type) {
-            return this._compState.isType(type);
+        BaseComponent.prototype.getCompType = function () {
+            return this._compState.getCompType();
         };
-        BaseComponent.prototype.setType = function (type) {
-            this._compState.setType(type);
+        BaseComponent.prototype.setCompType = function (type) {
+            this._compState.setCompType(type);
         };
         BaseComponent.prototype.onAddToStage = function (e) {
             this.onEnter();
@@ -181,7 +192,72 @@ var core;
 })(core || (core = {}));
 var core;
 (function (core) {
-    var style;
+    var ToggleButton = (function (_super) {
+        __extends(ToggleButton, _super);
+        function ToggleButton() {
+            return _super.call(this) || this;
+        }
+        Object.defineProperty(ToggleButton.prototype, "data", {
+            get: function () {
+                return this._data;
+            },
+            set: function (value) {
+                this._data = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(ToggleButton.prototype, "notice", {
+            get: function () {
+                return this._notice;
+            },
+            set: function (value) {
+                this._notice = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        ToggleButton.prototype.getButton = function (name) {
+            if (this.name == name) {
+                return this;
+            }
+        };
+        ToggleButton.prototype.getCurrentState = function () {
+            var state = this.skin.currentState;
+            if (this.selected) {
+                if (this.skin.hasState(state + 'AndSelected')) {
+                    return state + 'AndSelected';
+                }
+            }
+            else {
+                if (state.indexOf('AndSelected') > -1) {
+                    return state.replace('AndSelected', '');
+                }
+            }
+            return _super.prototype.getCurrentState.call(this);
+        };
+        ToggleButton.prototype.buttonReleased = function () {
+            if (core.is.truthy(this._notice)) {
+                var data = this.data;
+                if (!data) {
+                    var host = core.getHostComponent(this);
+                    if (host) {
+                        data = host.data;
+                    }
+                }
+                core.sendNotification(this._notice, { date: data, host: host, button: this });
+            }
+            else {
+                _super.prototype.buttonReleased.call(this);
+                if (this.name) {
+                    core.sendNotification(core.k.CLICK_BUTTON, this.name, this);
+                }
+            }
+        };
+        return ToggleButton;
+    }(eui.ToggleButton));
+    core.ToggleButton = ToggleButton;
+    __reflect(ToggleButton.prototype, "core.ToggleButton");
 })(core || (core = {}));
 var core;
 (function (core) {
@@ -1335,12 +1411,27 @@ var core;
         });
         ComponentState.prototype.setFull = function () {
             this._isFull = true;
+            this.full();
+        };
+        ComponentState.prototype.full = function () {
+            this._component.width = core.App.stage.stageWidth;
+            this._component.height = core.App.stage.stageHeight;
+            core.App.stage.removeEventListener(egret.Event.RESIZE, this.onResize, this);
+            core.App.stage.addEventListener(egret.Event.RESIZE, this.onResize, this);
+            return this;
+        };
+        ComponentState.prototype.onResize = function () {
+            this._component.width = core.App.stage.stageWidth;
+            this._component.height = core.App.stage.stageHeight;
         };
         ComponentState.prototype.isType = function (type) {
             return this._type == type;
         };
-        ComponentState.prototype.setType = function (type) {
+        ComponentState.prototype.setCompType = function (type) {
             this._type = type;
+        };
+        ComponentState.prototype.getCompType = function () {
+            return this._type;
         };
         ComponentState.prototype.listener = function (component, type, func) {
             if (!component || !func) {
@@ -1365,6 +1456,9 @@ var core;
         };
         ComponentState.prototype.onRemovedFromStage = function () {
             this._component.removeEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
+            if (this._isFull) {
+                core.App.stage.removeEventListener(egret.Event.RESIZE, this.onResize, this);
+            }
             this.clearLiteners();
             this._component.onExit();
         };
@@ -1381,7 +1475,7 @@ var core;
             var _this = _super.call(this) || this;
             _this._ignoreButton = false;
             _this._dataMapArr = [];
-            _this._state = new core.ComponentState(_this);
+            _this._compState = new core.ComponentState(_this);
             return _this;
         }
         Object.defineProperty(ItemRenderer.prototype, "notice", {
@@ -1414,6 +1508,32 @@ var core;
             enumerable: true,
             configurable: true
         });
+        ItemRenderer.prototype.getArgs = function () {
+            return this._compState.getArgs();
+        };
+        ItemRenderer.prototype.setArgs = function (args) {
+            this._compState.setArgs(args);
+        };
+        ItemRenderer.prototype.setFull = function () {
+            return this;
+        };
+        ItemRenderer.prototype.setCompType = function (type) {
+            this._compState.setCompType(type);
+        };
+        ItemRenderer.prototype.getCompType = function () {
+            return this._compState.getCompType();
+        };
+        Object.defineProperty(ItemRenderer.prototype, "animation", {
+            get: function () {
+                return this._animation;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        ItemRenderer.prototype.setAnimation = function (animation) {
+            this._animation = animation;
+            return this;
+        };
         Object.defineProperty(ItemRenderer.prototype, "data", {
             get: function () {
                 return this.$_data;
@@ -1457,10 +1577,10 @@ var core;
             return this;
         };
         ItemRenderer.prototype.listener = function (component, type, sender) {
-            this._state.listener(component, type, sender);
+            this._compState.listener(component, type, sender);
         };
         ItemRenderer.prototype.clearListeners = function () {
-            this._state.clearLiteners();
+            this._compState.clearLiteners();
         };
         ItemRenderer.prototype.onEnter = function () {
             core.setAttribute(this);
@@ -1598,6 +1718,9 @@ var core;
 })(core || (core = {}));
 var core;
 (function (core) {
+})(core || (core = {}));
+var core;
+(function (core) {
     var MovieType;
     (function (MovieType) {
         MovieType[MovieType["DRAGON"] = 0] = "DRAGON";
@@ -1695,75 +1818,6 @@ var core;
     }());
     core.BaseFactory = BaseFactory;
     __reflect(BaseFactory.prototype, "core.BaseFactory");
-})(core || (core = {}));
-var core;
-(function (core) {
-    var ToggleButton = (function (_super) {
-        __extends(ToggleButton, _super);
-        function ToggleButton() {
-            return _super.call(this) || this;
-        }
-        Object.defineProperty(ToggleButton.prototype, "data", {
-            get: function () {
-                return this._data;
-            },
-            set: function (value) {
-                this._data = value;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(ToggleButton.prototype, "notice", {
-            get: function () {
-                return this._notice;
-            },
-            set: function (value) {
-                this._notice = value;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        ToggleButton.prototype.getButton = function (name) {
-            if (this.name == name) {
-                return this;
-            }
-        };
-        ToggleButton.prototype.getCurrentState = function () {
-            var state = this.skin.currentState;
-            if (this.selected) {
-                if (this.skin.hasState(state + 'AndSelected')) {
-                    return state + 'AndSelected';
-                }
-            }
-            else {
-                if (state.indexOf('AndSelected') > -1) {
-                    return state.replace('AndSelected', '');
-                }
-            }
-            return _super.prototype.getCurrentState.call(this);
-        };
-        ToggleButton.prototype.buttonReleased = function () {
-            if (core.is.truthy(this._notice)) {
-                var data = this.data;
-                if (!data) {
-                    var host = core.getHostComponent(this);
-                    if (host) {
-                        data = host.data;
-                    }
-                }
-                core.sendNotification(this._notice, { date: data, host: host, button: this });
-            }
-            else {
-                _super.prototype.buttonReleased.call(this);
-                if (this.name) {
-                    core.sendNotification(core.k.CLICK_BUTTON, this.name, this);
-                }
-            }
-        };
-        return ToggleButton;
-    }(eui.ToggleButton));
-    core.ToggleButton = ToggleButton;
-    __reflect(ToggleButton.prototype, "core.ToggleButton");
 })(core || (core = {}));
 var core;
 (function (core) {
@@ -1940,16 +1994,30 @@ var core;
 })(core || (core = {}));
 var core;
 (function (core) {
-    var UIType;
-    (function (UIType) {
-        UIType[UIType["SCENE"] = 0] = "SCENE";
-        UIType[UIType["COMMON"] = 1] = "COMMON";
-        UIType[UIType["PANEL"] = 2] = "PANEL";
-        UIType[UIType["MENU"] = 3] = "MENU";
-        UIType[UIType["BOX"] = 4] = "BOX";
-        UIType[UIType["GUIDE"] = 5] = "GUIDE";
-        UIType[UIType["TOOLTIP"] = 6] = "TOOLTIP";
-    })(UIType = core.UIType || (core.UIType = {}));
+    var ComponentType;
+    (function (ComponentType) {
+        ComponentType[ComponentType["None"] = 0] = "None";
+        ComponentType[ComponentType["Scene"] = 1] = "Scene";
+        ComponentType[ComponentType["Panel"] = 2] = "Panel";
+        ComponentType[ComponentType["Menu"] = 3] = "Menu";
+        ComponentType[ComponentType["Box"] = 4] = "Box";
+        ComponentType[ComponentType["Guide"] = 5] = "Guide";
+        ComponentType[ComponentType["Tooltip"] = 6] = "Tooltip";
+    })(ComponentType = core.ComponentType || (core.ComponentType = {}));
+    function isInstance(type) {
+        if (type.constructor != Object.constructor) {
+            return true;
+        }
+        return false;
+    }
+    core.isInstance = isInstance;
+    function isType(type) {
+        if (type.constructor == Object.constructor) {
+            return true;
+        }
+        return false;
+    }
+    core.isType = isType;
     /**
      * 游戏UI界面控制器
      * 目前支持的容器(层级从下往上):场景层、公共UI层、面板层、菜单层、弹框层、新手引导层、浮动层
@@ -1958,348 +2026,168 @@ var core;
         __extends(UI, _super);
         function UI() {
             var _this = _super.call(this) || this;
+            _this._components = [];
             _this.touchEnabled = false;
-            _this._scene = new eui.UILayer();
-            _this._scene.touchEnabled = false;
-            _this.addChild(_this._scene);
-            _this._common = new eui.UILayer();
-            _this._common.touchEnabled = false;
-            _this.addChild(_this._common);
-            _this._panel = new eui.UILayer();
-            _this._panel.touchEnabled = false;
-            _this.addChild(_this._panel);
-            _this._menu = new eui.UILayer();
-            _this._menu.touchEnabled = false;
-            _this.addChild(_this._menu);
-            _this._topScene = new eui.UILayer();
-            _this._topScene.touchEnabled = false;
-            _this.addChild(_this._topScene);
-            _this._box = new eui.UILayer();
-            _this._box.touchEnabled = false;
-            _this.addChild(_this._box);
-            _this._guide = new eui.UILayer();
-            _this._guide.touchEnabled = false;
-            _this.addChild(_this._guide);
-            _this._tooltip = new eui.UILayer();
-            _this._tooltip.touchEnabled = false;
-            _this.addChild(_this._tooltip);
-            _this._containerArr = [_this._scene, _this._topScene, _this._menu, _this._panel, _this._common, _this._box, _this._guide, _this._tooltip];
+            _this._sceneLayer = new eui.UILayer();
+            _this._sceneLayer.touchEnabled = false;
+            _this.addChild(_this._sceneLayer);
+            _this._commonLayer = new eui.UILayer();
+            _this._commonLayer.touchEnabled = false;
+            _this.addChild(_this._commonLayer);
+            _this._panelLayer = new eui.UILayer();
+            _this._panelLayer.touchEnabled = false;
+            _this.addChild(_this._panelLayer);
+            _this._menuLayer = new eui.UILayer();
+            _this._menuLayer.touchEnabled = false;
+            _this.addChild(_this._menuLayer);
+            _this._boxLayer = new eui.UILayer();
+            _this._boxLayer.touchEnabled = false;
+            _this.addChild(_this._boxLayer);
+            _this._guideLayer = new eui.UILayer();
+            _this._guideLayer.touchEnabled = false;
+            _this.addChild(_this._guideLayer);
+            _this._tooltipLayer = new eui.UILayer();
+            _this._tooltipLayer.touchEnabled = false;
+            _this.addChild(_this._tooltipLayer);
+            _this._containerArr = [_this._sceneLayer, _this._menuLayer, _this._panelLayer, _this._commonLayer, _this._boxLayer, _this._guideLayer, _this._tooltipLayer];
             return _this;
         }
-        // private showAnimation(component:BaseComponent):void {
-        //     egret.callLater(() => {
-        //         component.animation.show(() => {});
-        //     }, this);
-        // }
-        // private onEnter(component:BaseComponent):void {
-        //     if (component.animation) {
-        //         component.visible = true;
-        //         if (component.stage) {
-        //             this.showAnimation(component);
-        //         } else {
-        //             component.once(egret.Event.ADDED_TO_STAGE, () => {
-        //                 this.showAnimation(component);
-        //             }, this);
-        //         }
-        //     }
-        // }
-        // clearBox():void {
-        //     this.boxHistory.clear();
-        //     var count = this._box.numChildren;
-        //     while (count > 0) {
-        //         var box = this._box.getChildAt(0);
-        //         meru.UI.remove(box, false);
-        //         count--;
-        //     }
-        // }
-        // private onExit(component:BaseComponent, remove:boolean):void {
-        //     if (component.animation) {
-        //         component.animation.close(() => {
-        //             component.visible = false;
-        //             if (remove) {
-        //                 component.destoryData();
-        //                 display.removeFromParent(component, true);
-        //             }
-        //         })
-        //     } else {
-        //         if (remove) {
-        //             component.destoryData();
-        //             display.removeFromParent(component, true);
-        //         }
-        //     }
-        // }
-        // private setAnimation(animationName:string, instanceObj:any):void {
-        //     if (!instanceObj.animation && animationName)  {
-        //         var animType = egret.getDefinitionByName(animationName);
-        //         if (animType) {
-        //             var animInstance = new animType();
-        //             instanceObj.animation = animInstance;
-        //         }
-        //     }
-        // }
-        // private onRemoveBox(boxDisplay:any):void {
-        //     var group = boxDisplay['__box_group__'];
-        //     if (group) {
-        //         var arr = this._sequenceBoxMap[group];
-        //         if (arr) {
-        //             var idx = arr.indexOf(boxDisplay);
-        //             if (idx > -1) {
-        //                 arr.splice(idx, 1);
-        //             }
-        //             if (arr.length == 0) {
-        //                 delete this._sequenceBoxMap[group];
-        //                 this.dispatchEvent(new UIEvent(UIEvent.CLEAR_SEQUENCE_BOX, null, group));
-        //             } else {
-        //                 var top = arr.shift();
-        //                 this.runSeqBox(arr, group, top);
-        //             }
-        //         }
-        //     }
-        // }
-        // private getTypeInst(type: any, animation:string, args: any[], uiType:UIType): BaseComponent {
-        //     var inst = null;
-        //     var skinName;
-        //     if (typeof type == 'string') {
-        //         skinName = type;
-        //         if (uiType == UIType.BOX) {
-        //             type = meru.getDefinitionType(getSetting().BoxClass, meru.BaseComponent);
-        //         } else {
-        //             type = meru.BaseComponent;
-        //         }
-        //     }
-        //     if (type.constructor.name == "Function") {
-        //         inst = new type(...args);
-        //     } else {
-        //         inst = type;
-        //         if (inst.setManual) {
-        //             inst.setManual(true);
-        //         }
-        //         if (inst.setArgs) {
-        //             inst.setArgs(args);
-        //         }
-        //     }
-        //     if (skinName) {
-        //         inst.skinName = skinName;
-        //     }
-        //     if (egret.is(inst, 'meru.BaseComponent')) {
-        //         inst.setType(uiType);
-        //     }
-        //     this.setAnimation(animation, inst);
-        //     this.onEnter(inst);
-        //     if (inst.hasOwnProperty('removeing')) {
-        //         delete inst.removeing;
-        //     }
-        //     return inst;
-        // }
-        // private _addPanel(panelType:any, args):BaseComponent {
-        //     this.hidePanel(this._currentPanel);
-        //     var panelInst = this.getTypeInst(panelType, getSetting().PanelAnimation, args, UIType.PANEL);
-        //     display.setFullDisplay(panelInst);
-        //     this._panel.addChild(panelInst);
-        //     this._currentPanel = panelInst;
-        //     this.dispatchEvent(new UIEvent(UIEvent.SHOW_PANEL, panelInst));
-        //     return panelInst;
-        // }
-        // addBox(boxType: any, args): BaseComponent {
-        //     var boxInst = this.getTypeInst(boxType, getSetting().BoxAnimation, args, UIType.BOX);
-        //     display.setFullDisplay(boxInst);
-        //     this._box.addChild(boxInst);
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_BOX, boxInst));
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, boxInst));
-        //     return boxInst;
-        // }
-        // private checkHistory(gotoHistory: boolean, history: UIHistory, gotoBackFun: Function): void {
-        //     if (!history) {
-        //         return;
-        //     }
-        //     if (gotoHistory) {
-        //         if (history.hasHistory()) {
-        //             history.popHistory();
-        //             var item = history.popHistory();
-        //             if (item) {
-        //                 gotoBackFun(item);
-        //             }
-        //         }
-        //     } else {
-        //         history.clear();
-        //     }
-        // }
-        // remove(displayObj: any, isHistory: boolean = null, checkHistory:boolean = true): void {
-        //     if (displayObj.removeing === true) {
-        //         return;
-        //     }
-        //     displayObj.removeing = true;
-        //     var gotoHistory = isHistory;
-        //     if (isHistory == null && displayObj.isHistoryComponent()) {
-        //         gotoHistory = true;
-        //     }
-        //     if (displayObj.isType(UIType.BOX) === true) {
-        //         this.onExit(displayObj, true);
-        //         if (checkHistory) {
-        //             this.checkHistory(gotoHistory, this.boxHistory, (item) =>
-        //                 this.addHistoryBox(item.type, item.args)
-        //             );
-        //         }
-        //     } else if (displayObj.isType(UIType.SCENE) === true) {
-        //         this.onExit(displayObj, true);
-        //         if (checkHistory) {
-        //             this.checkHistory(gotoHistory, this.sceneHistory, (item) =>
-        //                 this.addScene(item.type, item.isUnder, item.args)
-        //             );
-        //         }
-        //     } else if (displayObj.isType(UIType.PANEL) === true) {
-        //         this.hidePanel(displayObj);
-        //         if (checkHistory) {
-        //             this.checkHistory(gotoHistory, this.panelHistory, (item) => {
-        //                 this.restoreHookList(this.showHistoryPanel(item.type, item.args), item.hookList);
-        //             });
-        //         }
-        //     } else {
-        //         this.onExit(displayObj, true);
-        //     }
-        //     if (displayObj.isType(UIType.BOX) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_BOX, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //         this.onRemoveBox(displayObj);
-        //     } else if (displayObj.isType(UIType.SCENE) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_SCENE, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //     } else if (displayObj.isType(UIType.MENU) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_MENU, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //     } else if (displayObj.isType(UIType.GUIDE) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_GUIDE, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //     } else if (displayObj.isType(UIType.TOOLTIP) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_TOOLTIP, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //     } else if (displayObj.isType(UIType.COMMON) === true) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMMON, displayObj));
-        //         this.dispatchEvent(new UIEvent(UIEvent.REMOVE_COMPONENT, displayObj));
-        //     }
-        // }
-        // private restoreHookList(panel, hookList:any[]):void {
-        //     for (var i = 0; i < hookList.length; i ++) {
-        //         var item = hookList[i];
-        //         if (item.action == 'setData') {
-        //             panel.setData(item.data, item.type);
-        //         } else if (item.action == 'addOperate') {
-        //             var data = item.data;
-        //             item.operate.unserialize(data);
-        //             panel.addOperate(item.operate);
-        //         }
-        //     }
-        // }
-        // private _sceneInst: BaseComponent;
-        // get sceneHistory():UIHistory {
-        //     return typeSingleton('__UI_SCENE__', UIHistory);
-        // }
-        // runScene(sceneType: any, args): meru.BaseComponent {
-        //     if (is.truthy(this._sceneInst)) {
-        //         this.remove(this._sceneInst, null, false);
-        //     }
-        //     var ret = this.addScene(sceneType, true, args);
-        //     return ret;
-        // }
-        // runTopScene(sceneType: any, args): meru.BaseComponent {
-        //     if (is.truthy(this._sceneInst)) {
-        //         this.remove(this._sceneInst, null, false);
-        //     }
-        //     var ret = this.addScene(sceneType, false, args);
-        //     return ret;
-        // }
-        // private addScene(sceneType, isUnderScene:boolean, args): meru.BaseComponent {
-        //     this.sceneHistory.pushHistory(sceneType, args, isUnderScene);
-        //     var sceneInst = this.getTypeInst(sceneType, getSetting().SceneAnimation, args, UIType.SCENE);
-        //     display.setFullDisplay(sceneInst);
-        //     this._sceneInst = sceneInst;
-        //     if (isUnderScene) {
-        //         this._scene.addChild(sceneInst);
-        //     } else {
-        //         this._topScene.addChild(sceneInst);
-        //     }
-        //     this._sceneInst.setHistoryComponent(true);
-        //     this._menu.visible = isUnderScene;
-        //     this.dispatchEvent(new UIEvent(UIEvent.RUN_SCENE, this._sceneInst));
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, this._sceneInst));
-        //     return sceneInst;
-        // }
-        // addCommon(commonType: any, args): meru.BaseComponent {
-        //     var commonInst = this.getTypeInst(commonType, null, args, UIType.COMMON);
-        //     display.setFullDisplay(commonInst);
-        //     this._common.addChild(commonInst);
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMMON, commonInst));
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, commonInst));
-        //     return commonInst;
-        // }
-        // addTooltip(tooltipType:any, args):meru.BaseComponent {
-        //     var tooltipInst = this.getTypeInst(tooltipType, null, args, UIType.TOOLTIP);
-        //     display.setFullDisplay(tooltipInst);
-        //     this._tooltip.addChild(tooltipInst);
-        //     if (egret.is(tooltipInst, 'meru.BaseComponent')) {
-        //         this.dispatchEvent(new UIEvent(UIEvent.ADD_TOOLTIP, tooltipInst));
-        //         this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, tooltipInst));
-        //     }
-        //     return tooltipInst;
-        // }
-        // addGuide(guideType:any, args):any {
-        //     var guideInst = this.getTypeInst(guideType, null, args, UIType.GUIDE);
-        //     display.setFullDisplay(guideInst);
-        //     this._guide.addChild(guideInst);
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_GUIDE, guideInst));
-        //     this.dispatchEvent(new UIEvent(UIEvent.ADD_COMPONENT, guideInst));
-        //     return guideInst;
-        // }
-        UI.prototype.getContainerByType = function (type) {
-            switch (type) {
-                case UIType.BOX: {
-                    return this._box;
+        UI.prototype.openBox = function (type, args) {
+            var component = this.addUI(type, ComponentType.Box, this._boxLayer, args);
+            if (core.style.animation.box) {
+                component.setAnimation(core.style.animation.box);
+            }
+            this.onEnter(component, args);
+            return component;
+        };
+        UI.prototype.addUI = function (type, compType, parent, args) {
+            var component = this.createComponent(type);
+            component.setCompType(compType);
+            this._components.push(component);
+            component.setArgs(args);
+            parent.addChild(component);
+            return component;
+        };
+        UI.prototype.createComponent = function (type) {
+            var newInst;
+            if (core.is.string(type)) {
+                var component = new core.BaseComponent();
+                component.skinName = type;
+                newInst = component;
+            }
+            else if (isInstance(type)) {
+                newInst = type;
+            }
+            else if (isType(type)) {
+                var t = type;
+                newInst = new t();
+            }
+            // newInst.setFull();
+            return newInst;
+        };
+        UI.prototype.onEnter = function (component, args) {
+            var _this = this;
+            if (component.animation) {
+                component.visible = true;
+                if (component.stage) {
+                    this.showAnimation(component, args);
                 }
-                case UIType.SCENE: {
-                    return this._scene;
+                else {
+                    component.once(egret.Event.ADDED_TO_STAGE, function () {
+                        _this.showAnimation(component, args);
+                    }, this);
                 }
-                case UIType.GUIDE: {
-                    return this._guide;
-                }
-                case UIType.COMMON: {
-                    return this._common;
-                }
-                case UIType.MENU: {
-                    return this._menu;
-                }
-                case UIType.TOOLTIP: {
-                    return this._tooltip;
-                }
-                case UIType.PANEL: {
-                    return this._panel;
+            }
+            else {
+                this.showAnimation(component, args);
+            }
+        };
+        UI.prototype.showAnimation = function (component, args) {
+            component.onEnter.apply(component, args);
+            if (component.animation) {
+                egret.callLater(function () {
+                    component.animation.show(component, function () { });
+                }, this);
+            }
+        };
+        UI.prototype.addTooltip = function (type, args) {
+            var component = this.addUI(type, ComponentType.Tooltip, this._tooltipLayer, args);
+            this.onEnter(component, args);
+            return component;
+        };
+        UI.prototype.runScene = function (type, args) {
+            var oldScene = this.getComponentByType(ComponentType.Scene);
+            if (oldScene) {
+                this.remove(oldScene);
+            }
+            var component = this.addUI(type, ComponentType.Scene, this._sceneLayer, args);
+            if (core.style.animation.scene) {
+                component.setAnimation(core.style.animation.scene);
+            }
+            this.onEnter(component, args);
+            return component;
+        };
+        UI.prototype.getComponentByType = function (componentType) {
+            for (var i = 0; i < this._components.length; i++) {
+                if (this._components[i].getCompType() == componentType) {
+                    return this._components[i];
                 }
             }
             return null;
         };
-        UI.prototype.hasPanel = function () {
-            var panel = this._panel;
-            var num = panel.numChildren;
-            for (var i = 0; i < num; i++) {
-                var child = panel.getChildAt(i);
-                if (child.visible) {
-                    return true;
+        UI.prototype.remove = function (type) {
+            var has = false;
+            for (var i = this._components.length - 1; i >= 0; i--) {
+                var component = this._components[i];
+                if (this.compareType(type, component)) {
+                    this._components.splice(i, 1);
+                    var disObj = component;
+                    this.onExit(component, true);
+                    has = true;
+                    // if (component[UI.SEQ_BOX_KEY] == true) {
+                    //     this.checkSeqBox(component[UI.SEQ_GROUP_KEY]);
+                    // }
+                    // if (component[UI.STACK_BOX_KEY] === true) {
+                    //     this.setStackBoxVisible(true);
+                    // }
                 }
+            }
+            return has;
+        };
+        UI.prototype.compareType = function (type, component) {
+            if (core.is.string(type)) {
+                return component.name == type;
+            }
+            else if (core.is.number(type)) {
+                return component.getCompType() == type;
+            }
+            else if (isInstance(type)) {
+                return component == type;
+            }
+            else if (isType(type)) {
+                return component.constructor == type;
             }
             return false;
         };
-        // static hasPanel():boolean {
-        //     return meru.singleton(UI).hasPanel();
-        // }
-        UI.prototype.getComponentByName = function (name, container) {
-            var num = container.numChildren;
-            for (var i = 0; i < num; i++) {
-                var child = container.getChildAt(i);
-                if (child.componentName == name) {
-                    return child;
+        UI.prototype.onExit = function (component, forcerRemove) {
+            component.onExit();
+            if (component.animation) {
+                component.animation.hide(component, function () {
+                    component.visible = false;
+                    if (forcerRemove) {
+                        core.display.removeFromParent(component);
+                    }
+                });
+            }
+            else {
+                if (forcerRemove) {
+                    core.display.removeFromParent(component);
                 }
             }
-            return null;
         };
+        UI.SEQ_BOX_KEY = "__seq_box__";
+        UI.SEQ_GROUP_KEY = "__seq_group__";
+        UI.STACK_BOX_KEY = "__stack_box__";
         return UI;
     }(eui.UILayer));
     core.UI = UI;
@@ -2363,7 +2251,11 @@ var core;
             }
             if (callback) {
                 if (tw) {
-                    tw.call(callback);
+                    tw.call(function () {
+                        callback();
+                        egret.Tween.removeTweens(rect);
+                        egret.Tween.removeTweens(rect);
+                    });
                 }
                 else {
                     callback();
@@ -2384,7 +2276,11 @@ var core;
             }
             if (callback) {
                 if (tw) {
-                    tw.call(callback);
+                    tw.call(function () {
+                        callback();
+                        egret.Tween.removeTweens(rect);
+                        egret.Tween.removeTweens(rect);
+                    });
                 }
                 else {
                     callback();
@@ -2395,6 +2291,12 @@ var core;
     }());
     __reflect(BoxAnimation.prototype, "BoxAnimation", ["core.IAnimation"]);
 })(core || (core = {}));
+var GuideSystem = (function () {
+    function GuideSystem() {
+    }
+    return GuideSystem;
+}());
+__reflect(GuideSystem.prototype, "GuideSystem");
 var core;
 (function (core) {
     var Mediator = (function () {

@@ -56,7 +56,11 @@ module core {
             }
             if(callback) {
                 if (tw) {
-                    tw.call(callback);
+                    tw.call(()=>{
+                        callback();
+                        egret.Tween.removeTweens(rect);
+                        egret.Tween.removeTweens(rect);
+                    });
                 } else {
                     callback();
                 }
@@ -77,7 +81,11 @@ module core {
             }
             if(callback) {
                 if (tw) {
-                    tw.call(callback);
+                    tw.call(()=>{
+                        callback();
+                        egret.Tween.removeTweens(rect);
+                        egret.Tween.removeTweens(rect);
+                    });
                 } else {
                     callback();
                 }

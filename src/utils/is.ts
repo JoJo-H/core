@@ -20,6 +20,8 @@ module core {
             return value !== null && value !== undefined;
         };
 
+        //js中用void 0 代替undefined，在ES5之前，window下的undefined是可以被重写的，于是导致了某些极端情况下使用undefined会出现一定的差错。
+        //所以，用void 0是为了防止undefined被重写而出现判断不准确的情况。
         static undefined (value) {
             return value === void 0;
         };

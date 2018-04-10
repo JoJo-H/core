@@ -1,10 +1,10 @@
 
 module core {
     export class ItemRenderer extends eui.ItemRenderer implements IComponent, IAttributeHost{
-        private _state:ComponentState;
+        private _compState:ComponentState;
         public constructor() {
             super();
-            this._state = new ComponentState(this);
+            this._compState = new ComponentState(this);
         }
 
         private _notice:string;
@@ -29,6 +29,30 @@ module core {
         }
         set ignoreButton(value:boolean) {
             this._ignoreButton = value;
+        }
+
+        getArgs():any {
+            return this._compState.getArgs();
+        }
+        setArgs(args):void {
+            this._compState.setArgs(args);
+        }
+        setFull():IComponent {
+            return this;
+        }
+        setCompType(type:ComponentType):void {
+            this._compState.setCompType(type);
+        }
+        getCompType():ComponentType {
+            return this._compState.getCompType();
+        }
+        private _animation: IAnimation;
+        get animation(): IAnimation {
+            return this._animation;
+        }
+        setAnimation(animation: IAnimation): IComponent {
+            this._animation = animation;
+            return this;
         }
 
         private $_data:any;
@@ -77,10 +101,10 @@ module core {
         }
 
         listener(component:eui.Component,type, sender:(e:egret.Event) => void):void {
-            this._state.listener(component,type, sender);
+            this._compState.listener(component,type, sender);
         }
         clearListeners():void {
-            this._state.clearLiteners();
+            this._compState.clearLiteners();
         }
 
         onEnter():void {
