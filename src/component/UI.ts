@@ -88,7 +88,7 @@ module core {
         }
 
         openBox(type:UIType, args:any[]):core.IComponent {
-            var component = this.addUI(type, ComponentType.Box, this._boxLayer, args);
+            let component = this.addUI(type, ComponentType.Box, this._boxLayer, args);
             if (style.animation.box) {
                 component.setAnimation(style.animation.box);
             }
@@ -97,18 +97,18 @@ module core {
         }
 
         addTooltip(type:UIType, args:any[]):IComponent {
-            var component = this.addUI(type, ComponentType.Tooltip, this._tooltipLayer, args);
+            let component = this.addUI(type, ComponentType.Tooltip, this._tooltipLayer, args);
             this.onEnter(component, args);
             return component;
         }
 
         runScene(type:UIType, args:any[]):IComponent {
-            var oldScene = this.getComponentByType(ComponentType.Scene);
+            let oldScene = this.getComponentByType(ComponentType.Scene);
             if (oldScene) {
                 this.remove(oldScene);
             }
 
-            var component = this.addUI(type, ComponentType.Scene, this._sceneLayer, args);
+            let component = this.addUI(type, ComponentType.Scene, this._sceneLayer, args);
             if (style.animation.scene) {
                 component.setAnimation(style.animation.scene);
             }
@@ -117,7 +117,7 @@ module core {
         }
 
         showPanel(type:UIType, args:any[]):IComponent {
-            var component = this.addUI(type, ComponentType.Panel, this._panelLayer, args);
+            let component = this.addUI(type, ComponentType.Panel, this._panelLayer, args);
             if (style.animation.panel) {
                 component.setAnimation(style.animation.panel);
             }
@@ -126,7 +126,7 @@ module core {
         }
 
         private addUI(type:UIType, compType:ComponentType, parent:eui.UILayer, args:any[]):IComponent {
-            var component = this.createComponent(type);
+            let component = this.createComponent(type);
             component.setCompType(compType);
             this._components.push(component);
             component.setArgs(args);
@@ -135,15 +135,15 @@ module core {
         }
 
         private createComponent(type: UIType): IComponent {
-            var newInst:IComponent;
+            let newInst:IComponent;
             if (is.string(type)) {
-                var component = new BaseComponent();
+                let component = new BaseComponent();
                 component.skinName = type;
                 newInst = component;
             } else if (isInstance(type)) {
                 newInst = <any>type;
             } else if (isType(type)) {
-                var t:any = type;
+                let t:any = type;
                 newInst = new t();
             }
             // newInst.setFull();
@@ -151,6 +151,7 @@ module core {
         }
 
         private onEnter(component:IComponent, args:any[]):void {
+            invokeHook(hooks.ui, 'onAdd', component);
             if (component.animation) {
                 component.visible = true;
                 if (component.stage) {
@@ -175,21 +176,31 @@ module core {
         }
 
         private getComponentByType(componentType:ComponentType):IComponent {
-            for (var i = 0; i < this._components.length; i ++) {
+            for (let i = 0,len = this._components.length; i < len; i ++) {
                 if (this._components[i].getCompType() == componentType) {
                     return this._components[i];
                 }
             }
             return null;
         }
+        get(type:UIType):IComponent[] {
+            let r = [];
+            for (let i = 0, len = this._components.length; i < len; i ++) {
+                let component = this._components[i];
+                if (this.compareType(type, component)) {
+                    r.push(component);
+                }
+            }
+            return r;
+        }
 
         remove(type:UIType):boolean {
-            var has = false;
-            for (var i = this._components.length - 1; i >= 0; i --) {
-                var component = this._components[i];
+            let has = false;
+            for (let i = this._components.length - 1; i >= 0; i --) {
+                let component = this._components[i];
                 if (this.compareType(type, component)) {
                     this._components.splice(i, 1);
-                    var disObj:any = component;
+                    let disObj:any = component;
                     this.onExit(component, true);
                     has = true;
                     //关掉序列栈里面的视图时，需要打开下一个视图
@@ -219,6 +230,7 @@ module core {
         }
 
         private onExit(component:IComponent, forcerRemove:boolean):void {
+            invokeHook(hooks.ui, 'onRemove', component);
             component.onExit();
             if (component.animation) {
                 component.animation.hide(component, () => {
@@ -320,7 +332,7 @@ module core {
 
         //是否存在视图 双key
         private hasComponent2Key(key1:string,val1:any,key2:string,val2:any):boolean {
-            for (var i = 0, len = this._components.length; i < len; i ++) {
+            for (let i = 0, len = this._components.length; i < len; i ++) {
                 if (this._components[i][key1] == val1 && this._components[i][key2] == val2) {
                     return true;
                 }
@@ -329,7 +341,7 @@ module core {
         }
         //是否存在视图
         private hasComponent(key:string,val:any):boolean {
-            for (var i = 0, len = this._components.length; i < len; i ++) {
+            for (let i = 0, len = this._components.length; i < len; i ++) {
                 if (this._components[i][key] == val) {
                     return true;
                 }
@@ -337,17 +349,17 @@ module core {
             return false;
         }
 
-        static clearBox():void {
-            singleton(UI).clearBox();
-        }
-
         clearBox():void {
-            for (var i = this._components.length - 1; i >= 0; i --) {
-                var component = this._components[i];
+            for (let i = this._components.length - 1; i >= 0; i --) {
+                let component = this._components[i];
                 if (component.getCompType() == ComponentType.Box) {
                     this.remove(component);
                 }
             }
+        }
+
+        static clearBox():void {
+            singleton(UI).clearBox();
         }
     }
 

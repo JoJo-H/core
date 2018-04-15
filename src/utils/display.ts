@@ -44,5 +44,25 @@ module core {
         static get stageH():number {
             return App.stage.stageHeight;
         }
+
+        static addFliterGray(image:eui.Image):void {
+            //颜色矩阵数组
+            if(!image) return;
+            if(image.filters) return;
+            var colorMatrix = [
+                0.3,0.6,0,0,0,
+                0.3,0.6,0,0,0,
+                0.3,0.6,0,0,0,
+                0,0,0,1,0
+            ];
+            var colorFlilter = new egret.ColorMatrixFilter(colorMatrix);
+            image.filters = [colorFlilter];
+        }
+    
+        static removeFliterGray(image:eui.Image):void {
+            if(image && image.filters) {
+                image.filters = null;
+            }
+        }
     }
 }
