@@ -1,6 +1,11 @@
 
 module core {
     export class ToggleButton extends eui.ToggleButton {
+
+        constructor() {
+            super();
+        }
+
         private _data:any;
         get data():any {
             return this._data;
@@ -19,16 +24,6 @@ module core {
             this._notice = value;
         }
 
-        constructor() {
-            super();
-        }
-
-        getButton(name:string) {
-            if (this.name == name) {
-                return this;
-            }
-        }
-
         protected getCurrentState():string {
             var state = this.skin.currentState;
             if (this.selected) {
@@ -44,6 +39,7 @@ module core {
         }
 
         protected buttonReleased():void {
+            super.buttonReleased();
             if (is.truthy(this._notice)) {
                 var data = this.data;
                 if (!data) {
@@ -53,11 +49,6 @@ module core {
                     }
                 }
                 core.sendNotification(this._notice,{ date:data ,host:host ,button:this });
-            } else {
-                super.buttonReleased();
-                if (this.name) {
-                    core.sendNotification(core.k.CLICK_BUTTON, this.name, this);
-                }
             }
         }
     }

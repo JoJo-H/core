@@ -52,20 +52,20 @@ module core {
             return this._type;
         }
 
-        listener(component:eui.Component,type:string,func:(e:egret.Event) => void):void {
+        listener(component:eui.Component,type:string,func:(e:egret.Event) => void,context:any):void {
             if (!component || !func) {
                 return;
             }
             if(component.hasEventListener(type)) {
                 return;
             }
-            this._listeners.push({component: component, func:func, type: type});
-            component.addEventListener(type, func, this._component);
+            this._listeners.push({component: component, func:func, type: type,context:context});
+            component.addEventListener(type, func, context);
         }
         clearLiteners():void {
             while (this._listeners.length > 0) {
                 var listItem = this._listeners.shift();
-                listItem.component.removeEventListener(listItem.type, listItem.func, this);
+                listItem.component.removeEventListener(listItem.type, listItem.func, listItem.context);
             }
         }
 

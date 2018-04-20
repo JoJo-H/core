@@ -102,6 +102,12 @@ module core {
             return component;
         }
 
+        addGuide(type:UIType, args:any[]):IComponent {
+            let component = this.addUI(type, ComponentType.Guide, this._guideLayer, args);
+            this.onEnter(component, args);
+            return component;
+        }
+
         runScene(type:UIType, args:any[]):IComponent {
             let oldScene = this.getComponentByType(ComponentType.Scene);
             if (oldScene) {
@@ -360,6 +366,10 @@ module core {
 
         static clearBox():void {
             singleton(UI).clearBox();
+        }
+
+        static addGuide(type:UIType, args:any[]=[]):IComponent{
+            return core.singleton(UI).addGuide(type,args);
         }
     }
 

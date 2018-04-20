@@ -100,8 +100,8 @@ module core {
             return this;
         }
 
-        listener(component:eui.Component,type, sender:(e:egret.Event) => void):void {
-            this._compState.listener(component,type, sender);
+        listener(component:eui.Component,type, sender:(e:egret.Event) => void,context:any):void {
+            this._compState.listener(component,type, sender,context);
         }
         clearListeners():void {
             this._compState.clearLiteners();

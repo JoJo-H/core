@@ -39,6 +39,7 @@ module core {
         public customState:string = null;
 
         protected buttonReleased():void {
+            super.buttonReleased();
             if (is.truthy(this._notice)) {
                 var data = this.data;
                 if (!data) {
@@ -48,8 +49,6 @@ module core {
                     }
                 }
                 core.sendNotification(this._notice,{ date:data ,host:host ,button:this });
-            } else {
-                super.buttonReleased();
             }
         }
     }

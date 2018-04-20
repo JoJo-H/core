@@ -2,7 +2,7 @@ declare module core {
     interface IComponent extends egret.DisplayObject {
         onEnter(...args: any[]): void;
         onExit(): void;
-        listener(component: eui.Component, type: string, sender: (e: egret.Event) => void): void;
+        listener(component: eui.Component, type: string, sender: (e: egret.Event) => void, context: any): void;
         setState(name: string): IComponent;
         setArgs(args: any[]): void;
         setData(data: any, type?: any): IComponent;
@@ -20,7 +20,7 @@ declare module core {
         private _componentName;
         private _compState;
         constructor(...args: any[]);
-        listener(component: eui.Component, type: string, sender: (e: egret.Event) => void): void;
+        listener(component: eui.Component, type: string, sender: (e: egret.Event) => void, context: any): void;
         clearListeners(): void;
         private _hook;
         hook: IComponentHook;
@@ -31,7 +31,7 @@ declare module core {
         getOperateByName(name: string): IComponentOperate<any>[];
         getArgs(): any;
         setArgs(args: any): void;
-        private _animation;
+        protected _animation: IAnimation;
         readonly animation: IAnimation;
         setAnimation(animation: IAnimation): IComponent;
         updateAttribute(attribute: Attribute): void;
@@ -55,15 +55,11 @@ declare module core {
     }
 }
 declare module core {
-    class ToggleButton extends eui.ToggleButton {
-        private _data;
-        data: any;
-        private _notice;
-        notice: string;
-        constructor();
-        getButton(name: string): this;
-        protected getCurrentState(): string;
-        protected buttonReleased(): void;
+    class TabBar extends eui.TabBar {
+        onRendererTouchEnd(event: any): void;
+        private _sel;
+        private _context;
+        onVerifyCallback<Z>(sel: (itemIndex: number, itemRenderer: any) => void, context: Z): void;
     }
 }
 declare module core {
@@ -207,6 +203,45 @@ declare module core {
          */
         params?: any;
     }
+}
+declare class RequestCacheData {
+    constructor();
+    private static _instance;
+    static getInstance(): RequestCacheData;
+    getCacheByKey(key: any): any;
+}
+declare module core {
+    interface IHook<T> {
+        register(type: T): void;
+        remove(type: T): void;
+        reset(): void;
+        items: T[];
+    }
+    class Hook<T> implements IHook<T> {
+        private _hookMap;
+        constructor();
+        register(type: T): void;
+        remove(type: T): void;
+        reset(): void;
+        readonly items: T[];
+    }
+    interface IHooks {
+        ui: IHook<IUIHook>;
+        button: IHook<IButtonHook>;
+    }
+    interface IUIHook {
+        onAdd?(component: IComponent): void;
+        onRemove?(component: IComponent): void;
+    }
+    interface IButtonHook {
+        onClick?(btn: core.Button): void;
+    }
+    class Hooks implements IHooks {
+        ui: Hook<IUIHook>;
+        button: Hook<IButtonHook>;
+    }
+    var hooks: Hooks;
+    function invokeHook<T>(hook: IHook<T>, funName: string, ...args: any[]): boolean;
 }
 declare module core {
     class NotificationKey {
@@ -420,7 +455,7 @@ declare module core {
         isType(type: ComponentType): boolean;
         setCompType(type: ComponentType): void;
         getCompType(): ComponentType;
-        listener(component: eui.Component, type: string, func: (e: egret.Event) => void): void;
+        listener(component: eui.Component, type: string, func: (e: egret.Event) => void, context: any): void;
         clearLiteners(): void;
         onAddToStage(e: any): void;
         onRemovedFromStage(): void;
@@ -453,7 +488,7 @@ declare module core {
         updateAttribute(attribute: core.Attribute): void;
         setState(name: string): core.IComponent;
         setCompName(name: string): core.IComponent;
-        listener(component: eui.Component, type: any, sender: (e: egret.Event) => void): void;
+        listener(component: eui.Component, type: any, sender: (e: egret.Event) => void, context: any): void;
         clearListeners(): void;
         onEnter(): void;
         onExit(): void;
@@ -557,6 +592,17 @@ declare module core {
     }
 }
 declare module core {
+    class ToggleButton extends eui.ToggleButton {
+        constructor();
+        private _data;
+        data: any;
+        private _notice;
+        notice: string;
+        protected getCurrentState(): string;
+        protected buttonReleased(): void;
+    }
+}
+declare module core {
     interface ITooltip {
         show(info: TooltipInfo | string, skinName?: string): void;
         customView(skinName: string, data: any, delay?: number): void;
@@ -579,7 +625,7 @@ declare module core {
         readonly layout: ITooltipLayout;
     }
     interface ITooltipLayout {
-        layout(items: BaseComponent[]): void;
+        layout(items: eui.Component[]): void;
     }
 }
 declare module core {
@@ -597,6 +643,14 @@ declare module core {
     }
     function isInstance<T>(type: T): boolean;
     function isType<T>(type: T): boolean;
+    interface ISeqBoxInfo {
+        type: UIType;
+        group: string;
+        priority: number;
+        index: number;
+        args: any[];
+        resolve?: any;
+    }
     /**
      * 游戏UI界面控制器
      * 目前支持的容器(层级从下往上):场景层、公共UI层、面板层、菜单层、弹框层、新手引导层、浮动层
@@ -616,16 +670,38 @@ declare module core {
         private _containerArr;
         constructor();
         openBox(type: UIType, args: any[]): core.IComponent;
+        addTooltip(type: UIType, args: any[]): IComponent;
+        addGuide(type: UIType, args: any[]): IComponent;
+        runScene(type: UIType, args: any[]): IComponent;
+        showPanel(type: UIType, args: any[]): IComponent;
         private addUI(type, compType, parent, args);
         private createComponent(type);
         private onEnter(component, args);
         private showAnimation(component, args);
-        addTooltip(type: UIType, args: any[]): IComponent;
-        runScene(type: UIType, args: any[]): IComponent;
         private getComponentByType(componentType);
+        get(type: UIType): IComponent[];
         remove(type: UIType): boolean;
         private compareType(type, component);
         private onExit(component, forcerRemove);
+        private static SeqBoxIndex;
+        private _seqBoxStack;
+        /**
+         * 打开序列弹窗，默认组名normal为序列弹窗 -- 只有最优先的弹窗关闭后下一个弹窗才会打开
+         * @param type ui类型
+         * @param args 参数
+         */
+        openSeqBox(type: UIType, args: any[]): Promise<IComponent>;
+        openSeqBoxWithGroup(group: string, type: UIType, priority: number, args: any[]): Promise<IComponent>;
+        private _showGroupResolve;
+        private checkSeqBox(group);
+        showSeqBoxWithGroup(group: string): Promise<{}>;
+        openStackBox(type: UIType, args: any[]): IComponent;
+        private setStackBoxVisible(visible);
+        private hasComponent2Key(key1, val1, key2, val2);
+        private hasComponent(key, val);
+        clearBox(): void;
+        static clearBox(): void;
+        static addGuide(type: UIType, args?: any[]): IComponent;
     }
 }
 declare module core {
@@ -634,8 +710,7 @@ declare module core {
         hide(target: IComponent, callback: Function): void;
     }
 }
-declare class GuideSystem {
-    constructor();
+declare module core {
 }
 declare module core {
     interface IMediator {
@@ -805,6 +880,8 @@ declare module core {
         static setAnchor(disObj: egret.DisplayObject, anchorX: number, anchorY?: number): void;
         static readonly stageW: number;
         static readonly stageH: number;
+        static addFliterGray(image: eui.Image): void;
+        static removeFliterGray(image: eui.Image): void;
     }
 }
 declare module core {
@@ -913,6 +990,8 @@ declare module core {
     function typeSingleton<T>(clz: {
         new (): T;
     }, type: string): T;
+}
+declare module core {
 }
 declare module core {
     function getTypeId(type: any): any;

@@ -4,7 +4,7 @@ module core {
     export interface IComponent extends egret.DisplayObject {
         onEnter(...args):void;
         onExit():void;
-        listener(component:eui.Component,type:string,sender:(e:egret.Event) => void):void;
+        listener(component:eui.Component,type:string,sender:(e:egret.Event) => void,context:any):void;
         setState(name:string):IComponent;
         setArgs(args:any[]):void ;
         setData(data:any, type?:any):IComponent;
@@ -30,8 +30,8 @@ module core {
             this.setArgs(args);
         }
 
-        listener(component:eui.Component,type:string, sender:(e:egret.Event) => void):void {
-            this._compState.listener(component,type, sender);
+        listener(component:eui.Component,type:string, sender:(e:egret.Event) => void,context:any):void {
+            this._compState.listener(component,type, sender,context);
         }
         clearListeners():void {
             this._compState.clearLiteners();

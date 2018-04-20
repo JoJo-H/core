@@ -23,8 +23,8 @@ var core;
             _this.setArgs(args);
             return _this;
         }
-        BaseComponent.prototype.listener = function (component, type, sender) {
-            this._compState.listener(component, type, sender);
+        BaseComponent.prototype.listener = function (component, type, sender, context) {
+            this._compState.listener(component, type, sender, context);
         };
         BaseComponent.prototype.clearListeners = function () {
             this._compState.clearLiteners();
@@ -192,72 +192,31 @@ var core;
 })(core || (core = {}));
 var core;
 (function (core) {
-    var ToggleButton = (function (_super) {
-        __extends(ToggleButton, _super);
-        function ToggleButton() {
-            return _super.call(this) || this;
+    var TabBar = (function (_super) {
+        __extends(TabBar, _super);
+        function TabBar() {
+            return _super !== null && _super.apply(this, arguments) || this;
         }
-        Object.defineProperty(ToggleButton.prototype, "data", {
-            get: function () {
-                return this._data;
-            },
-            set: function (value) {
-                this._data = value;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(ToggleButton.prototype, "notice", {
-            get: function () {
-                return this._notice;
-            },
-            set: function (value) {
-                this._notice = value;
-            },
-            enumerable: true,
-            configurable: true
-        });
-        ToggleButton.prototype.getButton = function (name) {
-            if (this.name == name) {
-                return this;
-            }
-        };
-        ToggleButton.prototype.getCurrentState = function () {
-            var state = this.skin.currentState;
-            if (this.selected) {
-                if (this.skin.hasState(state + 'AndSelected')) {
-                    return state + 'AndSelected';
+        TabBar.prototype.onRendererTouchEnd = function (event) {
+            if (this._sel) {
+                var itemRenderer = event.currentTarget;
+                var r = this._sel.call(this._context, itemRenderer.itemIndex, itemRenderer);
+                if (r == true || core.is.undefined(r)) {
+                    _super.prototype.onRendererTouchEnd.call(this, event);
                 }
             }
             else {
-                if (state.indexOf('AndSelected') > -1) {
-                    return state.replace('AndSelected', '');
-                }
-            }
-            return _super.prototype.getCurrentState.call(this);
-        };
-        ToggleButton.prototype.buttonReleased = function () {
-            if (core.is.truthy(this._notice)) {
-                var data = this.data;
-                if (!data) {
-                    var host = core.getHostComponent(this);
-                    if (host) {
-                        data = host.data;
-                    }
-                }
-                core.sendNotification(this._notice, { date: data, host: host, button: this });
-            }
-            else {
-                _super.prototype.buttonReleased.call(this);
-                if (this.name) {
-                    core.sendNotification(core.k.CLICK_BUTTON, this.name, this);
-                }
+                _super.prototype.onRendererTouchEnd.call(this, event);
             }
         };
-        return ToggleButton;
-    }(eui.ToggleButton));
-    core.ToggleButton = ToggleButton;
-    __reflect(ToggleButton.prototype, "core.ToggleButton");
+        TabBar.prototype.onVerifyCallback = function (sel, context) {
+            this._sel = sel;
+            this._context = context;
+        };
+        return TabBar;
+    }(eui.TabBar));
+    core.TabBar = TabBar;
+    __reflect(TabBar.prototype, "core.TabBar");
 })(core || (core = {}));
 var core;
 (function (core) {
@@ -822,6 +781,80 @@ var core;
     }());
     __reflect(ProxyCache.prototype, "ProxyCache");
 })(core || (core = {}));
+var RequestCacheData = (function () {
+    function RequestCacheData() {
+    }
+    RequestCacheData.getInstance = function () {
+        if (!RequestCacheData._instance) {
+            RequestCacheData._instance = new RequestCacheData();
+        }
+        return RequestCacheData._instance;
+    };
+    RequestCacheData.prototype.getCacheByKey = function (key) {
+        return "";
+    };
+    return RequestCacheData;
+}());
+__reflect(RequestCacheData.prototype, "RequestCacheData");
+var core;
+(function (core) {
+    var Hook = (function () {
+        function Hook() {
+            this._hookMap = [];
+        }
+        Hook.prototype.register = function (type) {
+            this._hookMap.push(type);
+        };
+        Hook.prototype.remove = function (type) {
+            var index = this._hookMap.indexOf(type);
+            if (index != -1) {
+                this._hookMap.splice(index, 1);
+            }
+        };
+        Hook.prototype.reset = function () {
+            this._hookMap = [];
+        };
+        Object.defineProperty(Hook.prototype, "items", {
+            get: function () {
+                return this._hookMap;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        return Hook;
+    }());
+    core.Hook = Hook;
+    __reflect(Hook.prototype, "core.Hook", ["core.IHook"]);
+    var Hooks = (function () {
+        function Hooks() {
+            this.ui = new Hook();
+            this.button = new Hook();
+        }
+        return Hooks;
+    }());
+    core.Hooks = Hooks;
+    __reflect(Hooks.prototype, "core.Hooks", ["core.IHooks"]);
+    core.hooks = new Hooks();
+    function invokeHook(hook, funName) {
+        var args = [];
+        for (var _i = 2; _i < arguments.length; _i++) {
+            args[_i - 2] = arguments[_i];
+        }
+        var items = hook.items;
+        var r = true;
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if (item[funName]) {
+                var r2 = item[funName].apply(item, args);
+                if (r2 === false) {
+                    r = false;
+                }
+            }
+        }
+        return r;
+    }
+    core.invokeHook = invokeHook;
+})(core || (core = {}));
 var core;
 (function (core) {
     var NotificationKey = (function () {
@@ -1307,9 +1340,10 @@ var core;
                 }
                 core.sendNotification(this._notice, { date: data, host: host, button: this });
             }
-            if (this.name) {
-                core.sendNotification(core.k.CLICK_BUTTON, { name: this.name, button: this });
-            }
+            // if (this.name) {
+            //     core.sendNotification(core.k.CLICK_BUTTON, { name : this.name , button: this });
+            // }
+            // invokeHook(hooks.button, 'onClick', this);
         };
         Button.THROTTLE_TIME = 0;
         return Button;
@@ -1433,20 +1467,20 @@ var core;
         ComponentState.prototype.getCompType = function () {
             return this._type;
         };
-        ComponentState.prototype.listener = function (component, type, func) {
+        ComponentState.prototype.listener = function (component, type, func, context) {
             if (!component || !func) {
                 return;
             }
             if (component.hasEventListener(type)) {
                 return;
             }
-            this._listeners.push({ component: component, func: func, type: type });
-            component.addEventListener(type, func, this._component);
+            this._listeners.push({ component: component, func: func, type: type, context: context });
+            component.addEventListener(type, func, context);
         };
         ComponentState.prototype.clearLiteners = function () {
             while (this._listeners.length > 0) {
                 var listItem = this._listeners.shift();
-                listItem.component.removeEventListener(listItem.type, listItem.func, this);
+                listItem.component.removeEventListener(listItem.type, listItem.func, listItem.context);
             }
         };
         ComponentState.prototype.onAddToStage = function (e) {
@@ -1576,8 +1610,8 @@ var core;
             this.componentName = name;
             return this;
         };
-        ItemRenderer.prototype.listener = function (component, type, sender) {
-            this._compState.listener(component, type, sender);
+        ItemRenderer.prototype.listener = function (component, type, sender, context) {
+            this._compState.listener(component, type, sender, context);
         };
         ItemRenderer.prototype.clearListeners = function () {
             this._compState.clearLiteners();
@@ -1697,6 +1731,7 @@ var core;
             return state;
         };
         RadioButton.prototype.buttonReleased = function () {
+            _super.prototype.buttonReleased.call(this);
             if (core.is.truthy(this._notice)) {
                 var data = this.data;
                 if (!data) {
@@ -1706,9 +1741,6 @@ var core;
                     }
                 }
                 core.sendNotification(this._notice, { date: data, host: host, button: this });
-            }
-            else {
-                _super.prototype.buttonReleased.call(this);
             }
         };
         return RadioButton;
@@ -1821,6 +1853,65 @@ var core;
 })(core || (core = {}));
 var core;
 (function (core) {
+    var ToggleButton = (function (_super) {
+        __extends(ToggleButton, _super);
+        function ToggleButton() {
+            return _super.call(this) || this;
+        }
+        Object.defineProperty(ToggleButton.prototype, "data", {
+            get: function () {
+                return this._data;
+            },
+            set: function (value) {
+                this._data = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(ToggleButton.prototype, "notice", {
+            get: function () {
+                return this._notice;
+            },
+            set: function (value) {
+                this._notice = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        ToggleButton.prototype.getCurrentState = function () {
+            var state = this.skin.currentState;
+            if (this.selected) {
+                if (this.skin.hasState(state + 'AndSelected')) {
+                    return state + 'AndSelected';
+                }
+            }
+            else {
+                if (state.indexOf('AndSelected') > -1) {
+                    return state.replace('AndSelected', '');
+                }
+            }
+            return _super.prototype.getCurrentState.call(this);
+        };
+        ToggleButton.prototype.buttonReleased = function () {
+            _super.prototype.buttonReleased.call(this);
+            if (core.is.truthy(this._notice)) {
+                var data = this.data;
+                if (!data) {
+                    var host = core.getHostComponent(this);
+                    if (host) {
+                        data = host.data;
+                    }
+                }
+                core.sendNotification(this._notice, { date: data, host: host, button: this });
+            }
+        };
+        return ToggleButton;
+    }(eui.ToggleButton));
+    core.ToggleButton = ToggleButton;
+    __reflect(ToggleButton.prototype, "core.ToggleButton");
+})(core || (core = {}));
+var core;
+(function (core) {
     var Tooltip = (function (_super) {
         __extends(Tooltip, _super);
         function Tooltip() {
@@ -1897,9 +1988,19 @@ var core;
         __extends(TooltipItem, _super);
         function TooltipItem() {
             var _this = _super.call(this) || this;
+            _this.addEventListener(egret.Event.ADDED_TO_STAGE, _this.onAddToStage, _this);
+            // this.addEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
             _this._animation = new TooltipAnimation(_this);
             return _this;
         }
+        TooltipItem.prototype.onAddToStage = function (e) {
+            // this.removeEventListener(egret.Event.ADDED_TO_STAGE, this.onAddToStage, this);
+            this.onEnter();
+        };
+        TooltipItem.prototype.onRemovedFromStage = function () {
+            // this.removeEventListener(egret.Event.REMOVED_FROM_STAGE, this.onRemovedFromStage, this);
+            this.onExit();
+        };
         TooltipItem.prototype.init = function (info, skinName) {
             if (skinName) {
                 this.skinName = skinName;
@@ -1920,6 +2021,8 @@ var core;
                 }
             }
         };
+        TooltipItem.prototype.onExit = function () {
+        };
         Object.defineProperty(TooltipItem.prototype, "animation", {
             get: function () {
                 return this._animation;
@@ -1928,7 +2031,7 @@ var core;
             configurable: true
         });
         return TooltipItem;
-    }(core.BaseComponent));
+    }(eui.Component));
     __reflect(TooltipItem.prototype, "TooltipItem");
     var TooltipAnimation = (function () {
         function TooltipAnimation(item) {
@@ -2027,6 +2130,10 @@ var core;
         function UI() {
             var _this = _super.call(this) || this;
             _this._components = [];
+            //string做索引
+            _this._seqBoxStack = {};
+            //TODO
+            _this._showGroupResolve = {};
             _this.touchEnabled = false;
             _this._sceneLayer = new eui.UILayer();
             _this._sceneLayer.touchEnabled = false;
@@ -2060,6 +2167,36 @@ var core;
             this.onEnter(component, args);
             return component;
         };
+        UI.prototype.addTooltip = function (type, args) {
+            var component = this.addUI(type, ComponentType.Tooltip, this._tooltipLayer, args);
+            this.onEnter(component, args);
+            return component;
+        };
+        UI.prototype.addGuide = function (type, args) {
+            var component = this.addUI(type, ComponentType.Guide, this._guideLayer, args);
+            this.onEnter(component, args);
+            return component;
+        };
+        UI.prototype.runScene = function (type, args) {
+            var oldScene = this.getComponentByType(ComponentType.Scene);
+            if (oldScene) {
+                this.remove(oldScene);
+            }
+            var component = this.addUI(type, ComponentType.Scene, this._sceneLayer, args);
+            if (core.style.animation.scene) {
+                component.setAnimation(core.style.animation.scene);
+            }
+            this.onEnter(component, args);
+            return component;
+        };
+        UI.prototype.showPanel = function (type, args) {
+            var component = this.addUI(type, ComponentType.Panel, this._panelLayer, args);
+            if (core.style.animation.panel) {
+                component.setAnimation(core.style.animation.panel);
+            }
+            this.onEnter(component, args);
+            return component;
+        };
         UI.prototype.addUI = function (type, compType, parent, args) {
             var component = this.createComponent(type);
             component.setCompType(compType);
@@ -2087,6 +2224,7 @@ var core;
         };
         UI.prototype.onEnter = function (component, args) {
             var _this = this;
+            core.invokeHook(core.hooks.ui, 'onAdd', component);
             if (component.animation) {
                 component.visible = true;
                 if (component.stage) {
@@ -2110,30 +2248,23 @@ var core;
                 }, this);
             }
         };
-        UI.prototype.addTooltip = function (type, args) {
-            var component = this.addUI(type, ComponentType.Tooltip, this._tooltipLayer, args);
-            this.onEnter(component, args);
-            return component;
-        };
-        UI.prototype.runScene = function (type, args) {
-            var oldScene = this.getComponentByType(ComponentType.Scene);
-            if (oldScene) {
-                this.remove(oldScene);
-            }
-            var component = this.addUI(type, ComponentType.Scene, this._sceneLayer, args);
-            if (core.style.animation.scene) {
-                component.setAnimation(core.style.animation.scene);
-            }
-            this.onEnter(component, args);
-            return component;
-        };
         UI.prototype.getComponentByType = function (componentType) {
-            for (var i = 0; i < this._components.length; i++) {
+            for (var i = 0, len = this._components.length; i < len; i++) {
                 if (this._components[i].getCompType() == componentType) {
                     return this._components[i];
                 }
             }
             return null;
+        };
+        UI.prototype.get = function (type) {
+            var r = [];
+            for (var i = 0, len = this._components.length; i < len; i++) {
+                var component = this._components[i];
+                if (this.compareType(type, component)) {
+                    r.push(component);
+                }
+            }
+            return r;
         };
         UI.prototype.remove = function (type) {
             var has = false;
@@ -2144,12 +2275,14 @@ var core;
                     var disObj = component;
                     this.onExit(component, true);
                     has = true;
-                    // if (component[UI.SEQ_BOX_KEY] == true) {
-                    //     this.checkSeqBox(component[UI.SEQ_GROUP_KEY]);
-                    // }
-                    // if (component[UI.STACK_BOX_KEY] === true) {
-                    //     this.setStackBoxVisible(true);
-                    // }
+                    //关掉序列栈里面的视图时，需要打开下一个视图
+                    if (component[UI.SEQ_BOX_KEY] == true) {
+                        this.checkSeqBox(component[UI.SEQ_GROUP_KEY]);
+                    }
+                    //关掉显示栈中视图时，返回上一个打开的视图
+                    if (component[UI.STACK_BOX_KEY] === true) {
+                        this.setStackBoxVisible(true);
+                    }
                 }
             }
             return has;
@@ -2170,6 +2303,7 @@ var core;
             return false;
         };
         UI.prototype.onExit = function (component, forcerRemove) {
+            core.invokeHook(core.hooks.ui, 'onRemove', component);
             component.onExit();
             if (component.animation) {
                 component.animation.hide(component, function () {
@@ -2185,9 +2319,123 @@ var core;
                 }
             }
         };
+        /**
+         * 打开序列弹窗，默认组名normal为序列弹窗 -- 只有最优先的弹窗关闭后下一个弹窗才会打开
+         * @param type ui类型
+         * @param args 参数
+         */
+        UI.prototype.openSeqBox = function (type, args) {
+            return this.openSeqBoxWithGroup('normal', type, 0, args);
+        };
+        //分组打开弹窗,暂时只考虑一个组normal
+        UI.prototype.openSeqBoxWithGroup = function (group, type, priority, args) {
+            var obj = { type: type, args: args, priority: priority, group: group, index: UI.SeqBoxIndex++ };
+            var promise = new Promise(function (resolve, reject) {
+                obj.resolve = resolve;
+            });
+            if (!this._seqBoxStack[group]) {
+                this._seqBoxStack[group] = [];
+            }
+            this._seqBoxStack[group].push(obj);
+            this._seqBoxStack[group].sort(function (a, b) {
+                if (a.priority == b.priority) {
+                    return a.index - b.index;
+                }
+                return a.priority - b.priority;
+            });
+            if (group == "normal") {
+                this.checkSeqBox(group);
+            }
+            return promise;
+        };
+        //检测序列弹窗
+        UI.prototype.checkSeqBox = function (group) {
+            //是否序列栈中有数据，并且舞台上没有是序列弹窗标识的视图，就添加最优先视图
+            if (this._seqBoxStack[group] && this._seqBoxStack[group].length > 0
+                && !this.hasComponent2Key(UI.SEQ_GROUP_KEY, group, UI.SEQ_BOX_KEY, true)) {
+                var obj_1 = this._seqBoxStack[group].shift();
+                var ui = this.openBox(obj_1.type, obj_1.args);
+                ui[UI.SEQ_BOX_KEY] = true;
+                ui[UI.SEQ_GROUP_KEY] = obj_1.group;
+                obj_1.resolve(ui);
+            }
+            else if (this._showGroupResolve.hasOwnProperty(group)) {
+                this._showGroupResolve[group]();
+                delete this._showGroupResolve[group];
+            }
+        };
+        //额外手动打开序列栈视图
+        UI.prototype.showSeqBoxWithGroup = function (group) {
+            var _this = this;
+            return new Promise(function (resolve, reject) {
+                if (_this._seqBoxStack[group] &&
+                    _this._seqBoxStack[group].length > 0) {
+                    _this._showGroupResolve[group] = resolve;
+                    _this.checkSeqBox(group);
+                }
+            });
+        };
+        //打开下一个栈视图，隐藏当前栈视图；关闭时再打开当前视图；返回的效果
+        UI.prototype.openStackBox = function (type, args) {
+            this.setStackBoxVisible(false);
+            var box = this.openBox(type, args);
+            box[UI.STACK_BOX_KEY] = true;
+            return box;
+        };
+        UI.prototype.setStackBoxVisible = function (visible) {
+            var boxLayer = this._boxLayer;
+            var num = boxLayer.numChildren;
+            var first = true;
+            for (var i = num - 1; i >= 0; i--) {
+                var box = boxLayer.getChildAt(i);
+                if (box[UI.STACK_BOX_KEY] === true) {
+                    if (visible) {
+                        box.visible = first;
+                        first = false;
+                    }
+                    else {
+                        box.visible = false;
+                    }
+                }
+            }
+        };
+        //是否存在视图 双key
+        UI.prototype.hasComponent2Key = function (key1, val1, key2, val2) {
+            for (var i = 0, len = this._components.length; i < len; i++) {
+                if (this._components[i][key1] == val1 && this._components[i][key2] == val2) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        //是否存在视图
+        UI.prototype.hasComponent = function (key, val) {
+            for (var i = 0, len = this._components.length; i < len; i++) {
+                if (this._components[i][key] == val) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        UI.prototype.clearBox = function () {
+            for (var i = this._components.length - 1; i >= 0; i--) {
+                var component = this._components[i];
+                if (component.getCompType() == ComponentType.Box) {
+                    this.remove(component);
+                }
+            }
+        };
+        UI.clearBox = function () {
+            core.singleton(UI).clearBox();
+        };
+        UI.addGuide = function (type, args) {
+            if (args === void 0) { args = []; }
+            return core.singleton(UI).addGuide(type, args);
+        };
         UI.SEQ_BOX_KEY = "__seq_box__";
         UI.SEQ_GROUP_KEY = "__seq_group__";
         UI.STACK_BOX_KEY = "__stack_box__";
+        UI.SeqBoxIndex = 1;
         return UI;
     }(eui.UILayer));
     core.UI = UI;
@@ -2291,12 +2539,707 @@ var core;
     }());
     __reflect(BoxAnimation.prototype, "BoxAnimation", ["core.IAnimation"]);
 })(core || (core = {}));
-var GuideSystem = (function () {
-    function GuideSystem() {
-    }
-    return GuideSystem;
-}());
-__reflect(GuideSystem.prototype, "GuideSystem");
+var core;
+(function (core) {
+    //圆角遮罩，使用截图及blendMode的earse擦除模式，还可以制作各种形状的遮罩
+    var GuideMask = (function (_super) {
+        __extends(GuideMask, _super);
+        function GuideMask() {
+            var _this = _super.call(this) || this;
+            _this.init();
+            return _this;
+        }
+        GuideMask.prototype.init = function () {
+            this.touchEnabled = false;
+            this._top = new eui.Rect(1, 1);
+            this._top.alpha = 0.01;
+            // this._top.fillColor = 0x51A9F7;
+            this._top.touchEnabled = true;
+            this.addChild(this._top);
+            this._left = new eui.Rect(1, 1);
+            this._left.alpha = 0.01;
+            // this._left.fillColor = 0x51A9F7;
+            this._left.touchEnabled = true;
+            this.addChild(this._left);
+            this._right = new eui.Rect(1, 1);
+            this._right.alpha = 0.01;
+            // this._right.fillColor = 0x51A9F7;
+            this._right.touchEnabled = true;
+            this.addChild(this._right);
+            this._bottom = new eui.Rect(1, 1);
+            this._bottom.alpha = 0.01;
+            // this._bottom.fillColor = 0x51A9F7;
+            this._bottom.touchEnabled = true;
+            this.addChild(this._bottom);
+            this._stageRect = new egret.Sprite();
+            this._stageRect.graphics.beginFill(0, 1);
+            this._stageRect.graphics.drawRect(0, 0, egret.MainContext.instance.stage.stageWidth, egret.MainContext.instance.stage.stageHeight);
+            this._stageRect.graphics.endFill();
+            this._stageRect.touchEnabled = false;
+            this._stageRect.touchChildren = false;
+            this.addChild(this._stageRect);
+        };
+        GuideMask.prototype.show = function (target, arrowType) {
+            var bounds = target.getTransformedBounds(egret.MainContext.instance.stage);
+            // console.log(bounds.x,bounds.y,bounds.width,bounds.height,UI.instance.stage.stageWidth,UI.instance.stage.stageHeight);
+            this._top.width = egret.MainContext.instance.stage.stageWidth;
+            this._top.height = bounds.y;
+            this._left.y = bounds.y;
+            this._left.width = bounds.x;
+            this._left.height = bounds.height;
+            this._right.x = bounds.right;
+            this._right.y = bounds.y;
+            this._right.width = egret.MainContext.instance.stage.stageWidth - bounds.right;
+            this._right.height = bounds.height;
+            this._bottom.y = bounds.y + bounds.height;
+            this._bottom.width = egret.MainContext.instance.stage.stageWidth;
+            this._bottom.height = egret.MainContext.instance.stage.stageHeight - this._bottom.y;
+            var reverseMask = this.getReverseMask(bounds);
+            this._stageRect.mask = reverseMask;
+            //1向上指  2向下指
+            if (arrowType > 0) {
+                if (!this._arrow) {
+                    this._arrow = new eui.Image('point_1_png');
+                    this._arrow.width = 150;
+                    this._arrow.height = 168;
+                    this._arrow.anchorOffsetX = 75;
+                    this._arrow.anchorOffsetY = 84;
+                    this.addChild(this._arrow);
+                }
+                this._arrow.source = arrowType == 1 ? 'point_1_png' : 'point_2_png';
+            }
+            if (this._arrow) {
+                this._arrow.visible = arrowType > 0;
+                if (arrowType == 1) {
+                    this._arrow.x = bounds.x + bounds.width / 2 + this._arrow.width / 2 + 5;
+                    this._arrow.y = bounds.y + bounds.height + this._arrow.height / 2 - 5;
+                }
+                else {
+                    this._arrow.x = bounds.x - 10;
+                    this._arrow.y = bounds.y - bounds.height / 2 - 10;
+                }
+                egret.Tween.removeTweens(this._arrow);
+                this._arrow.scaleX = this._arrow.scaleY = 0.8;
+                egret.Tween.get(this._arrow, { loop: true }).to({ scaleX: 1.2, scaleY: 1.2 }, 300).to({ scaleX: 0.8, scaleY: 0.8 }, 300);
+            }
+        };
+        GuideMask.prototype.getReverseMask = function (bounds) {
+            // 将原来的遮罩图的混合模式设置为擦除,根据显示对象的 Alpha 值擦除背景。Alpha 值不为0的区域将被擦除。
+            if (!this._earseSp) {
+                this._earseSp = new egret.Sprite();
+                this._earseSp.blendMode = egret.BlendMode.ERASE;
+            }
+            var val = Math.max(Math.floor(bounds.width / 5), Math.floor(bounds.height / 5));
+            this._earseSp.graphics.clear();
+            this._earseSp.graphics.beginFill(0, 1);
+            this._earseSp.graphics.drawRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, val, val);
+            this._earseSp.graphics.endFill();
+            // 绘制一个黑色的Sprite作为反遮罩，然后把上面的遮罩加进去
+            if (!this._reverseSp) {
+                this._reverseSp = new egret.Sprite();
+                this._reverseSp.graphics.beginFill(0, 0.4);
+                this._reverseSp.graphics.drawRect(0, 0, egret.MainContext.instance.stage.stageWidth, egret.MainContext.instance.stage.stageHeight);
+                this._reverseSp.graphics.endFill();
+                this._reverseSp.addChild(this._earseSp);
+            }
+            // 创建一个RenderTexture，把反遮罩绘制上去
+            var renderTex = new egret.RenderTexture();
+            renderTex.drawToTexture(this._reverseSp);
+            // 用得到的Texture创建一个Bitmap，这样就得到最终的反遮罩位图对象了
+            var reverseMask = new egret.Bitmap(renderTex);
+            return reverseMask;
+        };
+        GuideMask.show = function (target, arrowType) {
+            if (arrowType === void 0) { arrowType = 1; }
+            var guideMask = core.singleton(GuideMask);
+            if (!guideMask.parent) {
+                core.UI.addGuide(guideMask);
+            }
+            guideMask.visible = true;
+            guideMask.show(target, arrowType);
+        };
+        GuideMask.hide = function () {
+            var guideMask = core.singleton(GuideMask);
+            if (guideMask._arrow) {
+                egret.Tween.removeTweens(guideMask._arrow);
+            }
+            guideMask.visible = false;
+        };
+        //
+        GuideMask.showRect = function () {
+        };
+        GuideMask.dispose = function () {
+            var guideMask = core.singleton(GuideMask);
+            if (guideMask._arrow) {
+                egret.Tween.removeTweens(guideMask._arrow);
+            }
+            if (guideMask.parent) {
+                guideMask.parent.removeChild(guideMask);
+            }
+        };
+        return GuideMask;
+    }(core.BaseComponent));
+    __reflect(GuideMask.prototype, "GuideMask");
+})(core || (core = {}));
+//新手引导例子
+// enum GuideStep {
+//     welcome = 0 ,               //欢迎
+//     build_receptionist = 1,     //建造接待台
+// 	recruit_nurse = 2,          //招募护士
+//     employ_nurse = 3,           //雇佣护士
+//     build_diagnosing = 4,       //建造诊断室
+//     recruit_doctor = 5,        //招募医生
+//     employ_doctor = 6,          //雇佣医生
+//     wear_equipment = 7,         //穿戴装备
+//     equipment_introduce = 8,    //装备介绍
+//     guide_end = 9,              //引导结束
+// }
+// interface IGuideDispose {
+//     dispose():void;
+// }
+// interface IGuideList {
+//     [key:number]:(next:Function)=>IGuideDispose;
+// }
+// class GuideManager {
+//     constructor(){
+//         //不可更改的ui
+//         //MainMap的name及地图区域id：regionBuilding1、RegionMap类的name、BuildingBuildBox的name及建造按钮id:btnCreate
+//         //CommonPanel的name及菜单按钮id:btnMenu、MenuView的name及招募按钮btnRecruit、
+//     }
+//     static Guide_Talk_End : string = 'Guide_Talk_End';                      //讲话引导结束
+//     static Guide_Enter_Region_Map_1 : string = 'GUIDE_ENTER_BUILDING_1';    //进去地图区域1
+//     static Guide_Open_Building_Box : string = 'Guide_Open_Building_Box';    //打开建造建筑 -- 接待台，一般诊断室
+//     static Guide_Building_Success : string = 'Guide_Building_Success';      //建造建筑成功 -- 接待台，一般诊断室
+//     static Guide_Open_Recruit_Box : string = 'Guide_Open_Recruit_Box';      //打开招募界面
+//     static Guide_Select_Nurse_Tab : string = 'Guide_Select_Nurse_Tab';      //选中护士选项
+//     static Guide_Recruit_Success : string = 'Guide_Recruit_Success';        //招募成功
+//     static Guide_Open_Building_Menu : string = 'Guide_Open_Building_Menu';  //打开建筑菜单
+//     static Guide_Open_Employ_Box : string = 'Guide_Open_Employ_Box';        //打开雇佣界面
+//     static Guide_Employ_Success : string = 'Guide_Employ_Success';          //雇佣成功
+//     static Guide_Open_Employee_View : string = 'Guide_Open_Employee_View';      //打开职员界面
+//     static Guide_Open_Equipment_View : string = 'Guide_Open_Equipment_View';   //打开装备列表
+//     static Guide_Open_AttrRp_View : string = 'Guide_Open_AttrRp_View';          //打开装备属性替换界面
+//     static Guide_Close_Equip_Operate_View : string = 'Guide_Close_Equip_Operate_View';        //关闭装备属性替换界面
+//     static Guide_Close_Employee_View : string = 'Guide_Close_Employee_View';    //关闭职员界面
+//     static Guide_Equip_Success : string = 'Guide_Equip_Success';                //穿戴成功
+//     static Guide_Open_Task_View : string = 'Guide_Open_Task_View';          //打开任务界面
+//     static GuideList:IGuideList = {
+//         [GuideStep.welcome] : GuideManager.welcom,
+//         [GuideStep.build_receptionist] : GuideManager.buildReceptionist,
+//         [GuideStep.recruit_nurse] : GuideManager.recruitNurse,
+//         [GuideStep.employ_nurse] : GuideManager.employNurse,
+//         [GuideStep.build_diagnosing] : GuideManager.buildDiagnosing,
+//         [GuideStep.recruit_doctor] : GuideManager.recruitDoctor,
+//         [GuideStep.employ_doctor] : GuideManager.employDoctor,
+//         [GuideStep.wear_equipment] : GuideManager.wearEquipment,
+//         [GuideStep.equipment_introduce] : GuideManager.equipmentIntroduce,
+//         [GuideStep.guide_end] : GuideManager.guideEnd,
+//     }
+//     private static _isInit : boolean = false;
+//     static init():void{
+//         if(this._isInit) return;
+//         this._isInit = true;
+//         let arr = [];
+//         let guideStep = RequestCacheData.getInstance().getCacheByKey('guideStep');
+//         for(let key in GuideManager.GuideList) {
+//             if(guideStep <= parseInt(key)){
+//                 arr.push(GuideManager.GuideList[key]);
+//             }
+//         }
+//         if(arr.length == 0){
+//             return;
+//         }
+//         console.log('进入引导');
+//         let lastGuideDispose : IGuideDispose = null;
+//         function run():void{
+//             if(lastGuideDispose){
+//                 lastGuideDispose.dispose();
+//                 lastGuideDispose = null;
+//             }
+//             if(arr.length > 0){
+//                 let fun = arr.shift();
+//                 lastGuideDispose = fun(run);
+//             }else{
+//                 let scene = UI.instance.getScene();
+//                 if(scene && scene.name == 'MainScene'){
+//                     (<MainScene>scene).updateScrollerEnabled();
+//                 }
+//                 GuideMask.dispose();
+//             }
+//         }
+//         run();
+//     }
+//     //完成某步骤
+//     static guideRequest(guideStep):Promise<any>{
+//         return new Promise<any>((resolve,reject)=>{
+//             console.log('完成引导步骤',guideStep);
+//             GameHttp.request({'command':NetCode.FINISH_GUIDE_TASK,'guideStep':guideStep},(rpData)=>{
+//                 resolve(rpData);
+//             },()=>{
+//                 reject();
+//             });
+//         });        
+//     }
+//     //新手引导消息监听
+//     static notification(name):Promise<any>{
+//         return new Promise<any>((resolve,reject)=>{
+//             ebe.addNotification(name,(...args)=>{
+//                 ebe.removeNotificationByName(name);
+//                 resolve(...args);
+//             },this);
+//         });
+//     }
+//     //新手引导倒计时
+//     static timeout(time,...args):Promise<any>{
+//         return new Promise<any>((resolve,reject)=>{
+//             let timeid = egret.setTimeout(()=>{
+//                 egret.clearTimeout(timeid);
+//                 resolve(...args);
+//             },this,time);
+//         });
+//     }
+//     //欢迎
+//     static welcom(next:Function):IGuideDispose{
+//         console.log('引导：欢迎')
+//         UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_1')}])
+//         .then((comp)=>{
+//             ebe.addNotification(GuideManager.Guide_Talk_End,()=>{
+//                 GuideManager.guideRequest(1).then(()=>{
+//                     UI.instance.remove(comp);
+//                     next();
+//                 });
+//             },this);
+//         });
+//         return {
+//             dispose():void{
+//                 ebe.removeNotificationByName(GuideManager.Guide_Talk_End);
+//             }
+//         }
+//     }
+//     //建造接待台
+//     static buildReceptionist(next:Function):IGuideDispose {
+//         console.log('引导：建造接待台');
+//         //引导讲话
+//         UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_2')}])
+//         .then((comp)=>{
+//             GuideManager.notification(GuideManager.Guide_Talk_End)
+//             .then(()=>{
+//                 UI.instance.remove(comp);
+//                 //指向接待台
+//                 return GuideManager.pointBuilding(11001);
+//             }).then(()=>{
+//                 //打开接待台建造页面
+//                 return GuideManager.notification(GuideManager.Guide_Open_Building_Box);
+//             }).then((buildId)=>{
+//                 return GuideManager.timeout(200,buildId);
+//             }).then((buildId)=>{
+//                 //指向建造界面的建造按钮
+//                 let comp = <BuildingBuildBox>UI.instance.getBox('BuildingBuildBox');
+//                 GuideMask.show(comp['btnCreate']);
+//                 return GuideManager.notification(GuideManager.Guide_Building_Success);
+//             }).then((buildId)=>{
+//                 if(buildId == 11001){
+//                     GuideManager.guideRequest(2).then(()=>{
+//                         GuideMask.hide();
+//                         next();
+//                     });
+//                 }
+//             });
+//         });
+//         return {
+//             dispose():void{
+//                 ebe.removeNotificationByName(GuideManager.Guide_Talk_End);
+//                 ebe.removeNotificationByName(GuideManager.Guide_Enter_Region_Map_1);
+//                 ebe.removeNotificationByName(GuideManager.Guide_Open_Building_Box);
+//                 ebe.removeNotificationByName(GuideManager.Guide_Building_Success);
+//             }
+//         }
+//     }
+//     //招募护士
+//     static recruitNurse(next:Function):IGuideDispose{
+//         console.log('引导：招募护士');
+//         UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_3')}])
+//         .then((comp)=>{
+//             GuideManager.notification(GuideManager.Guide_Talk_End)
+//             .then(()=>{
+//                 UI.instance.remove(comp);
+//                 //指向招募按钮
+//                 let commonP = UI.instance.getCommonBox('CommonPanel');
+//                 GuideMask.show(commonP['btnRecruit'],2);
+//                 return GuideManager.notification(GuideManager.Guide_Open_Recruit_Box);
+//             }).then(()=>{
+//                 return GuideManager.timeout(200);
+//             }).then(()=>{
+//                 //指向护士选项按钮
+//                 let recruitComp = <RecruitMain>UI.instance.getBox('RecruitMain');
+//                 GuideMask.show(recruitComp.getTabBarButton(1));
+//                 return GuideManager.notification(GuideManager.Guide_Select_Nurse_Tab);
+//             }).then(()=>{
+//                 GuideMask.hide();
+//                 //选择护士前的引导讲话
+//                 UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_4')}])
+//                 .then((comp)=>{
+//                     GuideManager.notification(GuideManager.Guide_Talk_End)
+//                     .then(()=>{
+//                         UI.instance.remove(comp);
+//                         //指向第一个护士的招募按钮
+//                         let recruitComp = <RecruitMain>UI.instance.getBox('RecruitMain');
+//                         GuideMask.show(recruitComp.getListFirstItemButton());
+//                         return GuideManager.notification(GuideManager.Guide_Recruit_Success);
+//                     }).then(()=>{
+//                         GuideManager.guideRequest(3).then(()=>{
+//                             let recruitComp = <RecruitMain>UI.instance.getBox('RecruitMain');
+//                             if(recruitComp){
+//                                 UI.instance.remove(recruitComp);
+//                             }
+//                             GuideMask.hide();
+//                             next();
+//                         });
+//                     });
+//                 });
+//             });
+//         });
+//         return {
+//             dispose():void{
+//                 GuideManager.removeNotification(GuideManager.Guide_Select_Nurse_Tab,GuideManager.Guide_Talk_End,GuideManager.Guide_Open_Recruit_Box,GuideManager.Guide_Recruit_Success);
+//             }
+//         }
+//     }
+//     //雇佣护士
+//     static employNurse(next:Function):IGuideDispose{
+//         console.log('引导：雇佣护士');
+//         UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_5')}])
+//         .then((comp)=>{
+//             GuideManager.notification(GuideManager.Guide_Talk_End)
+//             .then(()=>{
+//                 UI.instance.remove(comp);
+//                 //指向接待台
+//                 return GuideManager.pointBuilding(11001);
+//             }).then(()=>{
+//                 return GuideManager.notification(GuideManager.Guide_Open_Building_Menu);
+//             }).then(()=>{
+//                 return GuideManager.timeout(200);
+//             }).then(()=>{
+//                 let regionMap = <RegionMap>GuideManager.getMainMapParent().getChildByName('RegionMap');
+//                 let funcPanel = regionMap.getBuildingFuncPanel();
+//                 GuideMask.show(funcPanel.btnEmployee,2);
+//                 return GuideManager.notification(GuideManager.Guide_Open_Employ_Box);
+//             }).then(()=>{
+//                 return GuideManager.timeout(200);
+//             }).then(()=>{
+//                 let employBox = <BuildingEmployeeBox>UI.instance.getBox('BuildingEmployeeBox');
+//                 GuideMask.show(employBox.btnEmployee);
+//                 return GuideManager.notification(GuideManager.Guide_Employ_Success);
+//             }).then((ecomp)=>{
+//                 GuideManager.guideRequest(4).then(()=>{
+//                     UI.instance.remove(ecomp);
+//                     GuideMask.hide();
+//                     next();
+//                 });
+//             });
+//         });
+//         return {
+//             dispose():void{
+//                 GuideManager.removeNotification(GuideManager.Guide_Talk_End,GuideManager.Guide_Open_Building_Menu,GuideManager.Guide_Open_Employ_Box,GuideManager.Guide_Employ_Success);
+//             }
+//         }
+//     }
+//     //建造诊断室
+//     static buildDiagnosing(next:Function):IGuideDispose{
+//         console.log('引导：建造诊断室');
+//         UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_6')}])
+//         .then((comp)=>{
+//             GuideManager.notification(GuideManager.Guide_Talk_End)
+//             .then(()=>{
+//                 UI.instance.remove(comp);
+//                 //指向接待台
+//                 return GuideManager.pointBuilding(11002);
+//             }).then(()=>{
+//                 return GuideManager.notification(GuideManager.Guide_Open_Building_Box);
+//             }).then((buildId)=>{
+//                 return GuideManager.timeout(200,buildId);
+//             }).then((buildId)=>{
+//                 console.log(buildId);
+//                 let comp = <BuildingBuildBox>UI.instance.getBox('BuildingBuildBox');
+//                 GuideMask.show(comp['btnCreate']);
+//                 return GuideManager.notification(GuideManager.Guide_Building_Success);
+//             }).then((buildId)=>{
+//                 if(buildId == 11002){
+//                     GuideManager.guideRequest(5).then(()=>{
+//                         GuideMask.hide();
+//                         next();
+//                     });
+//                 }
+//             });
+//         });
+//         return {
+//             dispose():void{
+//                 GuideManager.removeNotification(GuideManager.Guide_Talk_End,GuideManager.Guide_Open_Building_Box,GuideManager.Guide_Building_Success);
+//             }
+//         }
+//     }
+//     //招募医生
+//     static recruitDoctor(next:Function):IGuideDispose{
+//         console.log('引导：招募医生');
+//         UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_7')}])
+//         .then((comp)=>{
+//             GuideManager.notification(GuideManager.Guide_Talk_End)
+//             .then(()=>{
+//                 UI.instance.remove(comp);
+//                 //指向招募按钮
+//                 let commonP = UI.instance.getCommonBox('CommonPanel');
+//                 GuideMask.show(commonP['btnRecruit'],2);
+//                 return GuideManager.notification(GuideManager.Guide_Open_Recruit_Box);
+//             }).then(()=>{
+//                 return GuideManager.timeout(200);
+//             }).then(()=>{
+//                 //指向第一个医生的招募按钮
+//                 let recruitComp = <RecruitMain>UI.instance.getBox('RecruitMain');
+//                 GuideMask.show(recruitComp.getListFirstItemButton());
+//                 return GuideManager.notification(GuideManager.Guide_Recruit_Success);
+//             }).then(()=>{
+//                 GuideManager.guideRequest(6).then(()=>{
+//                     let recruitComp = <RecruitMain>UI.instance.getBox('RecruitMain');
+//                     if(recruitComp){
+//                         UI.instance.remove(recruitComp);
+//                     }
+//                     GuideMask.hide();
+//                     next();
+//                 });
+//             });
+//         });
+//         return {
+//             dispose():void{
+//                 GuideManager.removeNotification(GuideManager.Guide_Talk_End,GuideManager.Guide_Open_Recruit_Box,GuideManager.Guide_Recruit_Success);
+//             }
+//         }
+//     }
+//     //雇佣医生
+//     static employDoctor(next:Function):IGuideDispose{
+//         console.log('引导：雇佣医生');
+//         UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_8')}])
+//         .then((comp)=>{
+//             GuideManager.notification(GuideManager.Guide_Talk_End)
+//             .then(()=>{
+//                 UI.instance.remove(comp);
+//                 //指向一般诊断室
+//                 return GuideManager.pointBuilding(11002);
+//             }).then(()=>{
+//                 return GuideManager.notification(GuideManager.Guide_Open_Building_Menu);
+//             }).then(()=>{
+//                 return GuideManager.timeout(200);
+//             }).then(()=>{
+//                 let regionMap = <RegionMap>GuideManager.getMainMapParent().getChildByName('RegionMap');
+//                 let funcPanel = regionMap.getBuildingFuncPanel();
+//                 GuideMask.show(funcPanel.btnEmployee);
+//                 return GuideManager.notification(GuideManager.Guide_Open_Employ_Box);
+//             }).then(()=>{
+//                 return GuideManager.timeout(200);
+//             }).then(()=>{
+//                 let employBox = <BuildingEmployeeBox>UI.instance.getBox('BuildingEmployeeBox');
+//                 GuideMask.show(employBox.btnEmployee);
+//                 return GuideManager.notification(GuideManager.Guide_Employ_Success);
+//             }).then((ecomp)=>{
+//                 GuideManager.guideRequest(7).then(()=>{
+//                     UI.instance.remove(ecomp);
+//                     GuideMask.hide();
+//                     next();
+//                 });
+//             });
+//         });
+//         return {
+//             dispose():void{
+//                 GuideManager.removeNotification(GuideManager.Guide_Talk_End,GuideManager.Guide_Open_Building_Menu,GuideManager.Guide_Open_Employ_Box,GuideManager.Guide_Employ_Success);
+//             }
+//         }
+//     }
+//     //穿戴装备
+//     static wearEquipment(next:Function):IGuideDispose{
+//         console.log('引导：穿戴装备');
+//         UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_9')}])
+//         .then((comp)=>{
+//             GuideManager.notification(GuideManager.Guide_Talk_End)
+//             .then(()=>{
+//                 UI.instance.remove(comp);
+//                 //指向职员
+//                 let commonP = UI.instance.getCommonBox('CommonPanel');
+//                 GuideMask.show(commonP['btnEmploye'],2);
+//                 return GuideManager.notification(GuideManager.Guide_Open_Employee_View);
+//             }).then(()=>{
+//                 return GuideManager.timeout(200);
+//             }).then(()=>{
+//                 let empComp = <EmployeMain>UI.instance.getBox('EmployeMain');
+//                 GuideMask.show(empComp['bg_have_0']);
+//                 return GuideManager.notification(GuideManager.Guide_Open_Equipment_View);
+//             }).then(()=>{
+//                 return GuideManager.timeout(200);
+//             }).then(()=>{
+//                 let equipList = <EquipList>UI.instance.getBox('EquipList');
+//                 GuideMask.show(equipList.getListFirstItem()); 
+//                 return GuideManager.notification(GuideManager.Guide_Equip_Success);
+//             }).then(()=>{
+//                 GuideManager.guideRequest(8).then(()=>{
+//                     GuideMask.hide();
+//                     next();
+//                 });
+//             });
+//         });
+//         return {
+//             dispose():void{
+//                 GuideManager.removeNotification(GuideManager.Guide_Talk_End,GuideManager.Guide_Open_Employee_View,GuideManager.Guide_Open_Equipment_View,GuideManager.Guide_Equip_Success);
+//             }
+//         }
+//     }
+//     //装备介绍
+//     static equipmentIntroduce(next:Function):IGuideDispose{
+//         console.log('引导：装备介绍');
+//         GuideManager.openEmployeeView().then(()=>{
+//             return GuideManager.notification(GuideManager.Guide_Open_AttrRp_View);
+//         }).then(()=>{
+//             GuideMask.hide();
+//             return GuideManager.timeout(200);
+//         }).then(()=>{
+//             UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_11')}])
+//             .then((comp)=>{
+//                 GuideManager.notification(GuideManager.Guide_Talk_End)
+//                 .then(()=>{
+//                     UI.instance.remove(comp);
+//                     return GuideManager.guideRequest(9);
+//                 }).then(()=>{
+//                     let operate = <EquipOperate>UI.instance.getBox('EquipOperate');
+//                     GuideMask.show(operate['close'],2);
+//                     return GuideManager.notification(GuideManager.Guide_Close_Equip_Operate_View);
+//                 }).then(()=>{
+//                     let empComp = <EmployeMain>UI.instance.getBox('EmployeMain');
+//                     GuideMask.show(empComp['close']);
+//                     return GuideManager.notification(GuideManager.Guide_Close_Employee_View);
+//                 }).then(()=>{
+//                     GuideMask.hide();
+//                     next();
+//                 });
+//             });
+//         });
+//         return {
+//             dispose():void{
+//                 GuideManager.removeNotification(GuideManager.Guide_Talk_End,GuideManager.Guide_Open_AttrRp_View,GuideManager.Guide_Close_Equip_Operate_View,GuideManager.Guide_Close_Employee_View);
+//             }
+//         }
+//     }
+//     //引导结束
+//     static guideEnd(next:Function):IGuideDispose{
+//         console.log('引导：引导结束');
+//         UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_12')}])
+//         .then((comp)=>{
+//             GuideManager.notification(GuideManager.Guide_Talk_End)
+//             .then(()=>{
+//                 UI.instance.remove(comp);
+//                 //指向菜单按钮
+//                 let commonP = UI.instance.getCommonBox('CommonPanel');
+//                 GuideMask.show(commonP['btnTask'],2);
+//                 return GuideManager.notification(GuideManager.Guide_Open_Task_View);
+//             }).then(()=>{
+//                 return GuideManager.timeout(200);
+//             }).then(()=>{
+//                 GuideMask.hide();
+//                 UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_13')}])
+//                 .then((comp)=>{
+//                     GuideManager.notification(GuideManager.Guide_Talk_End)
+//                     .then(()=>{
+//                         UI.instance.remove(comp);
+//                         GuideManager.guideRequest(10).then(()=>{
+//                             next();
+//                         });
+//                     })
+//                 })
+//             });
+//         });
+//         return {
+//             dispose():void{
+//                 GuideManager.removeNotification(GuideManager.Guide_Talk_End,GuideManager.Guide_Open_Task_View);
+//             }
+//         }
+//     }
+//     //指向地图区域中的建筑
+//     static pointBuilding(buildId):Promise<any>{
+//         return new Promise<any>((resolve,reject)=>{
+//             //是否在建筑区域中，重登时，需要重新进入区域
+//             let regionMap = <RegionMap>GuideManager.getMainMapParent().getChildByName('RegionMap');
+//             if(!regionMap){
+//                 //指向区域一
+//                 let mainMap = <egret.DisplayObjectContainer>GuideManager.getMainMapParent().getChildByName('MainMap');
+//                 let region = mainMap['regionBuilding1'];
+//                 GuideMask.show(region);
+//                 GuideManager.notification(GuideManager.Guide_Enter_Region_Map_1).then(()=>{
+//                     GuideMask.hide();
+//                     let timeid = egret.setTimeout(()=>{
+//                         egret.clearTimeout(timeid);
+//                         point();
+//                     },this,500);
+//                 });
+//             }else{
+//                 point();
+//             }
+//             function point():void{
+//                 let regionMap = <RegionMap>GuideManager.getMainMapParent().getChildByName('RegionMap');
+//                 let building = regionMap.getBuildingById(buildId);
+//                 GuideMask.show(building);
+//                 resolve();
+//             }
+//         });
+//     }
+//     //打开职员界面
+//     static openEmployeeView():Promise<any>{
+//         return new Promise<any>((resolve,reject)=>{
+//             UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_10')}])
+//             .then((comp)=>{
+//                 GuideManager.notification(GuideManager.Guide_Talk_End)
+//                 .then(()=>{
+//                     UI.instance.remove(comp);
+//                     let empComp = <EmployeMain>UI.instance.getBox('EmployeMain');
+//                     if(!empComp){
+//                         //指向职员
+//                         let commonP = UI.instance.getCommonBox('CommonPanel');
+//                         GuideMask.show(commonP['btnEmploye'],2);
+//                         GuideManager.notification(GuideManager.Guide_Open_Employee_View)
+//                         .then(()=>{
+//                             return GuideManager.timeout(200);
+//                         }).then(()=>{
+//                             point();
+//                         });
+//                     }else{
+//                         point();
+//                     }
+//                 });
+//             });
+//             function point():void{
+//                 //指向装备
+//                 let empComp = <EmployeMain>UI.instance.getBox('EmployeMain');
+//                 GuideMask.show(empComp['bg_have_0']);
+//                 resolve();
+//             }
+//         });
+//     }
+//     //移除监听
+//     static removeNotification(...notices):void{
+//         for(let name of notices){
+//             ebe.removeNotificationByName(name);
+//         }
+//     }
+//     //获取区域地图父容器
+//     static getMainMapParent():egret.DisplayObjectContainer{
+//         let mainMap = <egret.DisplayObjectContainer>UI.instance.getScene()['mapGroup'];
+//         return mainMap;
+//     }
+//     //获取当前引导步骤
+//     static getGuideStep():number {
+//         return parseInt(RequestCacheData.getInstance().getCacheByKey('guideStep'));
+//     }
+//     //是否在引导中
+//     static isInGuide():boolean {
+//         let guideStep = GuideManager.getGuideStep();
+//         return guideStep < 10;
+//     }
+// } 
 var core;
 (function (core) {
     var Mediator = (function () {
@@ -2755,6 +3698,26 @@ var core;
             enumerable: true,
             configurable: true
         });
+        display.addFliterGray = function (image) {
+            //颜色矩阵数组
+            if (!image)
+                return;
+            if (image.filters)
+                return;
+            var colorMatrix = [
+                0.3, 0.6, 0, 0, 0,
+                0.3, 0.6, 0, 0, 0,
+                0.3, 0.6, 0, 0, 0,
+                0, 0, 0, 1, 0
+            ];
+            var colorFlilter = new egret.ColorMatrixFilter(colorMatrix);
+            image.filters = [colorFlilter];
+        };
+        display.removeFliterGray = function (image) {
+            if (image && image.filters) {
+                image.filters = null;
+            }
+        };
         return display;
     }());
     core.display = display;
@@ -2821,6 +3784,8 @@ var core;
             return value !== null && value !== undefined;
         };
         ;
+        //js中用void 0 代替undefined，在ES5之前，window下的undefined是可以被重写的，于是导致了某些极端情况下使用undefined会出现一定的差错。
+        //所以，用void 0是为了防止undefined被重写而出现判断不准确的情况。
         is.undefined = function (value) {
             return value === void 0;
         };
@@ -3157,6 +4122,39 @@ var core;
         return this._singletonMap[symbol];
     }
     core.typeSingleton = typeSingleton;
+})(core || (core = {}));
+var core;
+(function (core) {
+    var str = (function () {
+        function str() {
+        }
+        str.replaceFromObject = function (text, obj) {
+            if (core.is.object(obj)) {
+                for (var key in obj) {
+                    text = str.replaceAll(text, "\\{" + key + "\\}", obj[key]);
+                }
+            }
+            return text;
+        };
+        str.replaceAll = function (str, search, replacement) {
+            var s = str.replace(new RegExp(search, 'g'), replacement);
+            return s;
+        };
+        str.replaceFromArr = function (text) {
+            var arg = [];
+            for (var _i = 1; _i < arguments.length; _i++) {
+                arg[_i - 1] = arguments[_i];
+            }
+            if (core.is.array(arg)) {
+                for (var key in arg) {
+                    text = str.replaceAll(text, "\\{" + key + "\\}", (arg[parseInt(key)]).toString());
+                }
+            }
+            return text;
+        };
+        return str;
+    }());
+    __reflect(str.prototype, "str");
 })(core || (core = {}));
 var core;
 (function (core) {
