@@ -38,6 +38,8 @@ module core {
                 egret.clearTimeout(this._timeoutId);
 
                 this.dispatchEvent(new RequestEvent(RequestEvent.TIME_OUT, this));
+                core.sendNotification(RequestNotice.TIME_OUT,[this._params]);
+                invokeHook(hooks.network,'onTimeout',this._params);
             },this,App.httpTimeout);
 
             let queryString = network.paramsToQueryString(this._params,this._customParams,network._globalParams);
@@ -68,14 +70,20 @@ module core {
             }
             if (isResponseSucceed) {
                 this.dispatchEvent(new RequestEvent(RequestEvent.RESPONSE_SUCCEED, this));
+                core.sendNotification(RequestNotice.RESPONSE_SUCCEED,[data,this._params,this]);
+                invokeHook(hooks.network,'onResponseSuccess',data,this._params,this);
             } else {
                 this.dispatchEvent(new RequestEvent(RequestEvent.RESPONSE_ERROR, this));
+                core.sendNotification(RequestNotice.RESPONSE_ERROR,[data,this._params,this]);
+                invokeHook(hooks.network,'onResponseError',data,this._params,this);
             }
         }
 
         private onError(event:egret.IOErrorEvent):void {
             console.log("request error : " + event);
+            core.sendNotification(RequestNotice.REQUEST_FAIL,[this._params]);
             this.dispatchEvent(new RequestEvent(RequestEvent.REQUEST_FAIL, this));
+            invokeHook(hooks.network,'onRequestError',this._params);
             egret.clearTimeout(this._timeoutId);
             this.clearEventListener();
         }

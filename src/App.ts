@@ -1,4 +1,4 @@
-
+///<reference path="CoreMediator.ts" />
 module core {
 
     export class App {
@@ -19,6 +19,9 @@ module core {
             return this._stage;
         }
     }
+
+    core.registerMediator(new CoreMediator());
+
     /**
      * 获取指定类的类型
      * @param name 类型名称

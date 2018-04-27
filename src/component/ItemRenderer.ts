@@ -142,7 +142,7 @@ module core {
                 return;
             }
             if (is.truthy(this._notice)) {
-                core.sendNotification(this._notice, this.data, this);
+                core.sendNotification(this._notice, this.data);
             }
         }
         getView(name):egret.DisplayObject {

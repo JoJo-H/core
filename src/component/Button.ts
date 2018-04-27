@@ -225,10 +225,7 @@ module core {
                 }
                 core.sendNotification(this._notice,{ date:data ,host:host ,button:this });
             }
-            // if (this.name) {
-            //     core.sendNotification(core.k.CLICK_BUTTON, { name : this.name , button: this });
-            // }
-            // invokeHook(hooks.button, 'onClick', this);
+            core.invokeHook(hooks.button, 'onClick', this);
         }
     }
 

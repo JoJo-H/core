@@ -33,6 +33,8 @@ module core {
     export interface IHooks {
         ui : IHook<IUIHook>;
         button : IHook<IButtonHook>;
+        network : IHook<INetworkHook>;
+        socket : IHook<ISocketHook>
     }
 
     export interface IUIHook{
@@ -44,9 +46,32 @@ module core {
         onClick?(btn:core.Button):void;
     }
 
+    export interface INetworkHook {
+        onTimeout?:(requestParms)=>void;
+        onRequestError?:(requestParms)=>void;
+        onResponseSuccess?:(responseData,requestParms,request:NetworkRequest)=>void;
+        onResponseError?:(responseData,requestParms,request:NetworkRequest)=>void;
+    }
+
+    export interface ISocketHook {
+        onMessage?(data: any): void;
+        onBeforeMessage?(data: any):boolean|undefined;
+        onAfterMessage?(data: any): void;
+        onClose?(): void;
+        onError?(error: any):void;
+        onConnect?(data?: any): void;
+        onSend?(route: string, params: any): void;
+        // socket?: core.Socket;
+        uniqueId?: any;
+        type?: string;
+
+    }
+
     export class Hooks implements IHooks {
         public ui = new Hook<IUIHook>();
         public button = new Hook<IButtonHook>();
+        public network = new Hook<INetworkHook>();
+        public socket = new Hook<ISocketHook>();
     }
 
     export var hooks = new Hooks();

@@ -2,14 +2,7 @@
 module core {
 
     export class RequestEvent extends egret.Event{
-        /**
-         * 请求中断
-         */
-        public static CANCEL:string = "cancel";
-        /**
-         * 请求成功
-         */
-        public static REQUEST_SUCCEED:string = "requestSucceed";
+        
         /**
          * 请求失败,请求异常
          */
