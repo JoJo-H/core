@@ -1,6 +1,4 @@
 
-//新手引导例子
-
 // enum GuideStep {
 //     welcome = 0 ,               //欢迎
 //     build_receptionist = 1,     //建造接待台
@@ -109,15 +107,25 @@
 //         });        
 //     }
 //     //新手引导消息监听
-//     static notification(name):Promise<any>{
+//     static notification(name,checkFun:Function=null):Promise<any>{
 //         return new Promise<any>((resolve,reject)=>{
 //             ebe.addNotification(name,(...args)=>{
-//                 ebe.removeNotificationByName(name);
-//                 resolve(...args);
+//                 if(checkFun){
+//                     console.log('开始检测checkFun');
+//                     if(checkFun()){
+//                         console.log('执行resolve');
+//                         ebe.removeNotificationByName(name);
+//                         resolve(...args);
+//                     }
+//                 }else{
+//                     // console.log('没有checkFun');
+//                     ebe.removeNotificationByName(name);
+//                     resolve(...args);
+//                 }
 //             },this);
 //         });
 //     }
-//     //新手引导倒计时
+//     //新手引导延迟
 //     static timeout(time,...args):Promise<any>{
 //         return new Promise<any>((resolve,reject)=>{
 //             let timeid = egret.setTimeout(()=>{
@@ -125,6 +133,12 @@
 //                 resolve(...args);
 //             },this,time);
 //         });
+//     }
+//     //检测显示对象是否存在,是否渲染的宽高达到期望的宽高(可能渲染某一显示对象时,先渲染其子对象的宽高太小,导致显示的遮罩太小)
+//     static checkExist(target:egret.DisplayObject,w:number=0,h:number=0):boolean {
+//         if(!target) return false;
+//         let bounds = target.getTransformedBounds(UI.instance.stage);
+//         return bounds.width > w && bounds.height > h;
 //     }
 //     //欢迎
 //     static welcom(next:Function):IGuideDispose{
@@ -151,7 +165,7 @@
 //         //引导讲话
 //         UI.instance.addBox(GuideTalkComponent,[{content:ConfigCenter.getLanguageName('task_main_2')}])
 //         .then((comp)=>{
-//             GuideManager.notification(GuideManager.Guide_Talk_End)
+//             GuideManager.notification(GuideManager.Guide_Talk_End,GuideManager.checkRegionBuilding1)
 //             .then(()=>{
 //                 UI.instance.remove(comp);
 //                 //指向接待台
@@ -183,6 +197,14 @@
 //                 ebe.removeNotificationByName(GuideManager.Guide_Building_Success);
 //             }
 //         }
+//     }
+//     private static checkRegionBuilding1():boolean {
+//         let mapGroup = <egret.DisplayObjectContainer>UI.instance.getScene()['mapGroup'];
+//         if(!mapGroup)return false;
+//         let mainMap = <egret.DisplayObjectContainer>mapGroup.getChildByName('MainMap');
+//         if(!mainMap) return false;
+//         let region = mainMap['regionBuilding1'];
+//         return GuideManager.checkExist(region,100,100);
 //     }
     
 //     //招募护士
@@ -554,6 +576,14 @@
 //                 resolve();
 //             }
 //         });
+//     }
+
+//     //移除对话框,有时会出现异常未移除
+//     static removeGuideTalkComp():void{
+//         let comp = UI.instance.getBox('GuideTalkComponent');
+//         if(comp){
+//             UI.instance.remove(comp);
+//         }
 //     }
 
 //     //移除监听

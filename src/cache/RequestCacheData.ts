@@ -1,20 +1,26 @@
+module core {
 
 
-class RequestCacheData {
+    class RequestCacheData {
 
-    constructor(){
-        
-    }
-
-    private static _instance: RequestCacheData;
-    static getInstance(): RequestCacheData {
-        if (!RequestCacheData._instance) {
-            RequestCacheData._instance = new RequestCacheData();
+        constructor(){
+            
         }
-        return RequestCacheData._instance;
+
+        private static _instance: RequestCacheData;
+        static getInstance(): RequestCacheData {
+            if (!RequestCacheData._instance) {
+                RequestCacheData._instance = new RequestCacheData();
+            }
+            return RequestCacheData._instance;
+        }
+
+        getCacheByKey(key):any{
+            return "";
+        }
     }
 
-    getCacheByKey(key):any{
-        return "";
+    export class cache {
+        
     }
 }

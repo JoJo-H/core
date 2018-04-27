@@ -4,6 +4,8 @@ module core {
     export class App {
 
         public static tooltipLayout : string = '';
+        public static httpRequestUrl : string;
+        public static httpTimeout : number = 10000;
 
         constructor(){
         }
