@@ -21,6 +21,19 @@ module core {
     }
 
     core.registerMediator(new CoreMediator());
+    /**
+     * 框架入口类，本类应在程序主入口调用run方法进行初始化
+     */
+    export function run(stage: egret.Stage): void {
+        egret.ImageLoader.crossOrigin = 'anonymous';
+        core.FrameEventCenter.getInstance().init(stage);
+        // core.LayerCenter.getInstance().init(stage);
+        RES.setMaxLoadingThread(8);
+        if (egret.Capabilities.runtimeType == egret.RuntimeType.WEB) {
+            core.WebUtils.addKeyboardListener();
+            egret.Logger.logLevel = egret.Logger.ALL;
+        }
+    }
 
     /**
      * 获取指定类的类型
