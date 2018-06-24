@@ -8,6 +8,8 @@ module core {
 		handleNotification( notification:INotification ):void;
 		onRegister():void;
 		onRemove():void;
+		getViewComponent():any;
+		setViewComponent( viewComponent:any ):void;
     }
     
     export class Mediator implements IMediator
@@ -16,14 +18,31 @@ module core {
 		 * The name of the <code>Mediator</code>.
 		 */
 		mediatorName:string = null;
-		constructor( mediatorName:string=null)
+		/**
+		 * The <code>Mediator</code>'s view component.
+		 *
+		 * @protected
+		 */
+		viewComponent:any = null;
+		constructor( mediatorName:string=null, viewComponent:any=null)
 		{
 			this.mediatorName = (mediatorName != null) ? mediatorName : Mediator.NAME;
+			this.viewComponent = viewComponent;
 		}
 
 		getMediatorName():string
 		{	
 			return this.mediatorName;
+		}
+		
+		getViewComponent():any
+		{	
+			return this.viewComponent;
+		}
+
+		setViewComponent( viewComponent:any ):void
+		{
+			this.viewComponent = viewComponent;
 		}
 
 		/**
